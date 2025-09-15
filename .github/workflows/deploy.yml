@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,14 +31,23 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      # 🔸 Create a .env file that Vite will read at build time
+      - name: Write Vite .env
+        run: |
+          echo "VITE_SUPABASE_URL=${VITE_SUPABASE_URL}" > .env
+          echo "VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}" >> .env
+          echo "Wrote .env:"
+          cat .env | sed 's/=.*/=[hidden]/'
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      # Build the app (Vite will read .env we just wrote)
       - name: Build
         run: |
           export BASE_PATH="/${GITHUB_REPOSITORY#*/}/"
           echo "Using BASE_PATH=$BASE_PATH"
           npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
