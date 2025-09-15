@@ -12,7 +12,7 @@ export default function Create() {
   const [options, setOptions] = useState(["", ""]); // start with 2 fields
   const [duration, setDuration] = useState("120");  // minutes: 30, 120, 1440
 
-  // after-create UI (share links instead of QR)
+  // after-create UI (single shareable room link)
   const [roomCode, setRoomCode] = useState(null);
   const [closesAt, setClosesAt] = useState(null);
 
@@ -84,7 +84,7 @@ export default function Create() {
   function generateCode() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let s = "";
-    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * (chars.length))];
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
     return s;
   }
 
@@ -124,7 +124,7 @@ export default function Create() {
       });
 
       if (!error) {
-        // instead of navigating away, show share links here
+        // show shareable room link here
         setRoomCode(code);
         setClosesAt(closes.toISOString());
         return;
@@ -147,9 +147,8 @@ export default function Create() {
     hasEmoji ||
     trimmed.some((t) => !t); // all visible fields must be non-empty
 
-  // shareable links (go directly to Vote and Results landing)
-  const voteUrl = roomCode ? `${window.location.origin}/#/vote/${roomCode}` : "";
-  const resultsUrl = roomCode ? `${window.location.origin}/#/results/${roomCode}` : "";
+  // single shareable landing link
+  const roomUrl = roomCode ? `${window.location.origin}/#/room/${roomCode}` : "";
 
   function copy(text) {
     navigator.clipboard?.writeText(text).then(
@@ -255,7 +254,7 @@ export default function Create() {
                 <li>No emojis allowed; plain text only.</li>
                 <li>Options must be unique (case-insensitive).</li>
                 <li>Poll locks on launch; voters must rank all choices.</li>
-                <li>Results are live and accessible via the same link.</li>
+                <li>Share the room link below; voters can choose Vote or Results there.</li>
               </ul>
             </div>
 
@@ -283,30 +282,18 @@ export default function Create() {
                 <span style={{ opacity: 0.8 }}>Code:</span>{" "}
                 <b>{roomCode}</b>
               </div>
-              <div style={{ marginBottom: 8 }}>
+              <div style={{ marginBottom: 12 }}>
                 Ends in <b>{endsIn}</b>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
-                <div>
-                  <div style={styles.linkLabel}>Vote link</div>
-                  <div style={styles.linkRow}>
-                    <input readOnly value={voteUrl} style={styles.linkInput} />
-                    <button style={styles.copyBtn} onClick={() => copy(voteUrl)}>Copy</button>
-                  </div>
+              <div>
+                <div style={styles.linkLabel}>Room link (landing page)</div>
+                <div style={styles.linkRow}>
+                  <input readOnly value={roomUrl} style={styles.linkInput} />
+                  <button style={styles.copyBtn} onClick={() => copy(roomUrl)}>Copy</button>
                 </div>
-
-                <div>
-                  <div style={styles.linkLabel}>Results link</div>
-                  <div style={styles.linkRow}>
-                    <input readOnly value={resultsUrl} style={styles.linkInput} />
-                    <button style={styles.copyBtn} onClick={() => copy(resultsUrl)}>Copy</button>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                  <a href={voteUrl} style={styles.primaryBtn}>Open Vote</a>
-                  <a href={resultsUrl} style={styles.secondaryBtn}>Open Results</a>
+                <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                  <a href={roomUrl} style={styles.primaryBtn}>Open Room</a>
                   <button onClick={() => nav(`/room/${roomCode}`)} style={styles.ghostBtn}>
                     Back to Room
                   </button>
