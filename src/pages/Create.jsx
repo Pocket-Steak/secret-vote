@@ -1,19 +1,7 @@
 // src/pages/Create.jsx
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { supabase } from "../lib/supabase";
-
-// ====== GitHub Pages URL helper =============================================
-// BASE_PATH is injected by the GitHub Actions workflow.
-// In prod it's "/<REPO-NAME>/" and locally it's just "/".
-const BASE_PATH = (import.meta.env.BASE_PATH || "/").replace(/\/+$/, "/");
-
-/** Build an absolute URL that works on GitHub Pages project sites. */
-const makeHashUrl = (hashPath) => {
-  const clean = String(hashPath).replace(/^#?\/?/, "");
-  return `${window.location.origin}${BASE_PATH}#/${clean}`;
-};
-// ============================================================================
 
 // --- constants (theme + limits) ---------------------------------------------
 const ORANGE = "#ff8c00";
@@ -33,17 +21,15 @@ const genCode = () => {
   for (let i = 0; i < 6; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
   return out;
 };
-
 const nowPlus = (mins) => new Date(Date.now() + mins * 60_000);
 const toIso = (d) => d.toISOString();
 
 // --- component --------------------------------------------------------------
 export default function Create() {
-  // form state
+  // form state (original had defaults: title + 2 example options)
   const [title, setTitle] = useState("Where should we eat dinner?");
   const [duration, setDuration] = useState(DURATIONS[1]); // default 2h
-  const [options, setOptions] = useState(["Pizza", "Burgers"]); // start with two visible
-  const [newOpt, setNewOpt] = useState("");
+  const [options, setOptions] = useState(["Pizza", "Burgers"]);
 
   // after-create state
   const [roomCode, setRoomCode] = useState(null);
@@ -53,11 +39,11 @@ export default function Create() {
 
   // share URLs + QR
   const voteUrl = useMemo(
-    () => (roomCode ? makeHashUrl(`vote/${roomCode}`) : ""),
+    () => (roomCode ? `${window.location.origin}/#/vote/${roomCode}` : ""),
     [roomCode],
   );
   const resultsUrl = useMemo(
-    () => (roomCode ? makeHashUrl(`results/${roomCode}`) : ""),
+    () => (roomCode ? `${window.location.origin}/#/results/${roomCode}` : ""),
     [roomCode],
   );
   const qrRef = useRef(null);
@@ -83,17 +69,14 @@ export default function Create() {
     return `${h}h ${m}m ${s}s`;
   }, [expiresAt, tock]);
 
-  // form handlers
+  // handlers
   const addOption = () => {
-    const v = newOpt.trim();
-    if (!v) return;
     if (options.length >= MAX_OPTIONS) return;
-    if (options.some((o) => o.toLowerCase() === v.toLowerCase())) return;
-    setOptions((prev) => [...prev, v]);
-    setNewOpt("");
+    setOptions((prev) => [...prev, ""]);
   };
 
   const removeOption = (idx) => {
+    if (options.length <= MIN_OPTIONS) return;
     setOptions((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -109,34 +92,35 @@ export default function Create() {
   // create room in Supabase
   const onCreate = async () => {
     setError("");
-    if (options.length < MIN_OPTIONS) {
-      setError(`Add at least ${MIN_OPTIONS} options.`);
+    const cleanTitle = title.trim();
+    const cleanOpts = options.map((o) => o.trim()).filter((o) => o.length > 0);
+
+    if (cleanOpts.length < MIN_OPTIONS) {
+      setError(`Enter at least ${MIN_OPTIONS} options.`);
       return;
     }
-    if (options.length > MAX_OPTIONS) {
+    if (cleanOpts.length > MAX_OPTIONS) {
       setError(`Max ${MAX_OPTIONS} options.`);
       return;
     }
 
     setCreating(true);
     try {
-      // 1) create room
       const code = genCode();
       const expires = nowPlus(duration.mins);
 
       const { error: roomErr } = await supabase.from("rooms").insert([
         {
           code,
-          title: title.trim(),
+          title: cleanTitle,
           expires_at: toIso(expires),
         },
       ]);
       if (roomErr) throw roomErr;
 
-      // 2) insert options
-      const rows = options.map((text, idx) => ({
+      const rows = cleanOpts.map((text, idx) => ({
         room_code: code,
-        text: text.trim(),
+        text,
         idx,
       }));
       const { error: optErr } = await supabase.from("options").insert(rows);
@@ -169,7 +153,7 @@ export default function Create() {
           <h1 style={styles.h1}>Create a Poll</h1>
 
           <label style={styles.label}>
-            Poll Title <span style={styles.hint}>(max 60 chars, plain text)</span>
+            Poll Title <span style={styles.hint}>(max 60 chars)</span>
           </label>
           <input
             value={title}
@@ -183,7 +167,7 @@ export default function Create() {
           <label style={styles.label}>
             Options{" "}
             <span style={styles.hint}>
-              ({MIN_OPTIONS}–{MAX_OPTIONS}, max 30 chars, no duplicates)
+              ({MIN_OPTIONS}–{MAX_OPTIONS}, max 30 chars)
             </span>
           </label>
 
@@ -200,6 +184,7 @@ export default function Create() {
                       return copy;
                     })
                   }
+                  placeholder="Type an option"
                   style={styles.optInput}
                 />
                 <div style={{ display: "flex", gap: 6 }}>
@@ -233,33 +218,12 @@ export default function Create() {
           </div>
 
           {options.length < MAX_OPTIONS && (
-            <div style={styles.addRow}>
-              <input
-                value={newOpt}
-                onChange={(e) => setNewOpt(e.target.value.slice(0, 30))}
-                placeholder="Add another option"
-                style={styles.optInput}
-              />
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button style={styles.primaryBtn} onClick={addOption}>
-                Add
+                Add option
               </button>
             </div>
           )}
-
-          <div style={{ height: 16 }} />
-
-          <label style={styles.label}>Voting window</label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {DURATIONS.map((d) => (
-              <button
-                key={d.mins}
-                style={d.mins === duration.mins ? styles.primaryBtn : styles.secondaryBtn}
-                onClick={() => setDuration(d)}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
 
           {!!error && <div style={styles.error}>{error}</div>}
 
@@ -288,10 +252,6 @@ export default function Create() {
                 <button style={styles.secondaryBtn} onClick={downloadQR}>
                   Download QR (PNG)
                 </button>
-              </div>
-
-              <div style={{ marginTop: 8, opacity: 0.8 }}>
-                Share the QR or code so people can vote or see live results.
               </div>
             </div>
 
@@ -373,7 +333,6 @@ const styles = {
     outline: "none",
     color: "#fff",
   },
-  addRow: { display: "flex", gap: 8, marginTop: 6 },
 
   primaryBtn: {
     background: ORANGE,
