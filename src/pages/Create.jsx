@@ -119,11 +119,9 @@ export default function Create() {
       });
 
       if (!error) {
-        // ✅ Go to the Landing page for this room
-        nav(`/room/${code}`);
+        nav(`/room/${code}`); // Landing page owns the code/copy UI
         return;
       }
-      // 23505 = unique_violation (code collision). Otherwise, fail fast.
       if (error.code !== "23505") {
         console.error(error);
         alert("Could not create poll. Please try again.");
@@ -232,7 +230,7 @@ export default function Create() {
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
           <button type="button" onClick={() => nav("/")} style={styles.secondaryBtn}>
             Cancel
           </button>
@@ -258,18 +256,22 @@ const styles = {
     placeItems: "center",
     background: "#0b0f17",
     color: "#e9e9f1",
+    padding: "clamp(8px, 2vw, 16px)",
+    overflowX: "hidden", // kill stray horizontal scroll on mobile
   },
   container: {
-    width: "min(720px, 92vw)",
-    padding: 24,
+    width: "100%",
+    maxWidth: 720,
+    padding: "clamp(16px, 3vw, 24px)",
     borderRadius: 16,
     background: "rgba(255,255,255,0.04)",
     boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    overflow: "hidden",
+    boxSizing: "border-box",
+    margin: "0 auto",
   },
-  title: { fontSize: 28, marginBottom: 10, textShadow: "0 0 12px rgba(255,140,0,.8)" },
+  title: { fontSize: "clamp(22px, 4.5vw, 28px)", marginBottom: 10, textShadow: "0 0 12px rgba(255,140,0,.8)" },
 
-  label: { display: "block", fontWeight: 700, marginBottom: 6 },
+  label: { display: "block", fontWeight: 700, marginBottom: 6, fontSize: "clamp(14px, 3.6vw, 18px)" },
   sub: { fontWeight: 400, opacity: 0.7 },
 
   input: {
@@ -304,6 +306,7 @@ const styles = {
   optionInput: {
     flex: 1,
     width: "100%",
+    minWidth: 0, // prevents overflow in flex rows on iOS
     padding: "10px 12px",
     borderRadius: 10,
     border: "1px solid #333",
@@ -319,6 +322,7 @@ const styles = {
     borderRadius: 10,
     padding: "8px 10px",
     cursor: "pointer",
+    flex: "0 0 auto",
   },
 
   ghostBtn: {
@@ -331,7 +335,8 @@ const styles = {
   },
 
   select: {
-    width: 240,
+    width: "100%",          // full width on mobile
+    maxWidth: 340,          // but don’t get huge on desktop
     padding: "10px 12px",
     borderRadius: 12,
     border: "1px solid #333",
@@ -359,6 +364,7 @@ const styles = {
     fontWeight: 800,
     cursor: "pointer",
     boxShadow: "0 0 14px rgba(255,140,0,.8)",
+    flex: "0 0 auto",
   },
   secondaryBtn: {
     padding: "12px 16px",
@@ -367,5 +373,6 @@ const styles = {
     background: "transparent",
     color: ORANGE,
     cursor: "pointer",
+    flex: "0 0 auto",
   },
 };
