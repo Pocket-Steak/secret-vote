@@ -16,9 +16,18 @@ export default function Home() {
     nav(`/room/${c}`);
   }
 
+  // Public assets in Vite work with BASE_URL (so this is safe on GitHub Pages)
+  const logoSrc = `${import.meta.env.BASE_URL}TheSecretVote.png`;
+
   return (
     <div style={styles.wrap}>
-      <h1 style={styles.title}>The Secret Vote</h1>
+      {/* Logo instead of H1 */}
+      <img
+        src={logoSrc}
+        alt="The Secret Vote"
+        style={styles.logo}
+        draggable={false}
+      />
 
       <div style={styles.card}>
         <button style={styles.primaryBtn} onClick={goCreate}>
@@ -37,16 +46,40 @@ export default function Home() {
         </form>
       </div>
 
-      <p style={styles.hint}>Scan the QR or type the code to join a poll.</p>
+      <p style={styles.hint}>Type the room code to join a poll.</p>
     </div>
   );
 }
 
 const styles = {
-  wrap: { minHeight: "100vh", display: "grid", placeItems: "center", background: "#0b0f17", color: "#e9e9f1" },
-  title: { fontSize: 36, letterSpacing: 1, textShadow: "0 0 12px rgba(255,140,0,.8)" }, // neon orange glow
-  card: { padding: 24, borderRadius: 16, background: "rgba(255,255,255,0.04)", boxShadow: "0 0 20px rgba(255,140,0,.35)" },
-  row: { display: "flex", gap: 8, marginTop: 12 },
+  wrap: {
+    minHeight: "100vh",
+    display: "grid",
+    placeItems: "center",
+    background: "#0b0f17",
+    color: "#e9e9f1",
+    padding: "28px 14px",
+  },
+
+  // responsive logo (centered, shrinks on small screens)
+  logo: {
+    width: "min(520px, 80vw)",
+    height: "auto",
+    marginBottom: 16,
+    filter: "drop-shadow(0 0 12px rgba(255,140,0,.6))",
+    userSelect: "none",
+  },
+
+  card: {
+    width: "min(480px, 92vw)",
+    padding: 24,
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.04)",
+    boxShadow: "0 0 20px rgba(255,140,0,.35)",
+  },
+
+  row: { display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" },
+
   input: {
     padding: "12px 14px",
     borderRadius: 12,
@@ -57,7 +90,9 @@ const styles = {
     letterSpacing: 2,
     textTransform: "uppercase",
     outline: "none",
+    flex: "1 1 180px",
   },
+
   primaryBtn: {
     padding: "12px 18px",
     borderRadius: 12,
@@ -68,7 +103,9 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: "0 0 14px rgba(255,140,0,.8)",
+    width: "100%",
   },
+
   secondaryBtn: {
     padding: "12px 16px",
     borderRadius: 12,
@@ -76,6 +113,8 @@ const styles = {
     background: "transparent",
     color: "#ff8c00",
     cursor: "pointer",
+    flex: "0 0 auto",
   },
-  hint: { opacity: 0.7, marginTop: 12, fontSize: 12 },
+
+  hint: { opacity: 0.7, marginTop: 12, fontSize: 12, textAlign: "center" },
 };
