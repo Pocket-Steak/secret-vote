@@ -159,7 +159,7 @@ export default function Vote() {
   // ---- render ----
   if (loading) {
     return ScreenWrap(
-      <div style={styles.card}>
+      <div style={styles.container}>
         <h1 style={styles.title}>Room {code}</h1>
         <p style={styles.text}>Loading…</p>
       </div>
@@ -167,7 +167,7 @@ export default function Vote() {
   }
   if (!poll) {
     return ScreenWrap(
-      <div style={styles.card}>
+      <div style={styles.container}>
         <h1 style={styles.title}>Room {code}</h1>
         <p style={styles.text}>We couldn’t find this poll. Double-check the code.</p>
         <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
@@ -176,7 +176,7 @@ export default function Vote() {
   }
   if (status === "expired") {
     return ScreenWrap(
-      <div style={styles.card}>
+      <div style={styles.container}>
         <h1 style={styles.title}>{poll.title}</h1>
         <p style={{ ...styles.text, marginTop: 8 }}>
           This page has gone the way of your New Year’s resolutions.
@@ -187,7 +187,7 @@ export default function Vote() {
   }
   if (submitted) {
     return ScreenWrap(
-      <div style={styles.card}>
+      <div style={styles.container}>
         <h1 style={styles.title}>Thanks for voting in “{poll.title}”</h1>
         <p style={styles.text}>Sending you to the live results… ({redirectIn}s)</p>
         <div style={{ marginTop: 12 }}>
@@ -200,7 +200,7 @@ export default function Vote() {
   }
 
   return ScreenWrap(
-    <div style={styles.card}>
+    <div style={styles.container}>
       <div style={styles.headerRow}>
         <h1 style={styles.title}>{poll.title}</h1>
         <div style={styles.timer}>Ends in {fmtHM(timeLeft)}</div>
@@ -220,7 +220,11 @@ export default function Vote() {
                 ...(filled ? styles.rankFilled : {}),
               }}
               onClick={() => setActiveRank(i)}
-              title={filled ? "Click to make this slot active (you can clear it)" : "Click to fill this slot"}
+              title={
+                filled
+                  ? "Click to make this slot active (you can clear it)"
+                  : "Click to fill this slot"
+              }
             >
               <div style={styles.rankBadge}>{i + 1}</div>
               <div style={styles.rankContent}>
@@ -229,7 +233,10 @@ export default function Vote() {
                     <span>{val}</span>
                     <button
                       style={styles.clearBtn}
-                      onClick={(e) => { e.stopPropagation(); clearRank(i); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearRank(i);
+                      }}
                       title="Clear this rank"
                     >
                       ✕
@@ -261,7 +268,7 @@ export default function Vote() {
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+      <div style={styles.actionsRow}>
         <button style={styles.secondaryBtn} onClick={() => nav(`/room/${code}`)}>Back</button>
         <button
           style={{ ...styles.primaryBtn, opacity: ranks.some((x) => x === null) ? 0.6 : 1 }}
@@ -276,17 +283,46 @@ export default function Vote() {
   );
 }
 
-/* ---------- layout & styles ---------- */
+/* ---------- layout & styles (phone-friendly only) ---------- */
 function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
 }
 
 const styles = {
-  wrap: { minHeight: "100vh", display: "grid", placeItems: "center", background: "#0b0f17", color: "#e9e9f1" },
-  card: { width: "min(900px, 92vw)", padding: 24, borderRadius: 16, background: "rgba(255,255,255,0.04)", boxShadow: "0 0 20px rgba(255,140,0,.35)" },
+  // outer shell
+  wrap: {
+    minHeight: "100vh",
+    display: "grid",
+    placeItems: "center",
+    background: "#0b0f17",
+    color: "#e9e9f1",
+    padding: "clamp(8px, 2vw, 16px)",
+    overflowX: "hidden",
+  },
+  // card/container
+  container: {
+    width: "100%",
+    maxWidth: 720,
+    padding: "clamp(16px, 3vw, 24px)",
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.04)",
+    boxShadow: "0 0 20px rgba(255,140,0,.35)",
+    boxSizing: "border-box",
+    margin: "0 auto",
+  },
 
-  headerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  title: { fontSize: 24, textShadow: "0 0 12px rgba(255,140,0,.8)" },
+  headerRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  title: {
+    fontSize: "clamp(22px, 4.5vw, 28px)",
+    textShadow: "0 0 12px rgba(255,140,0,.8)",
+    margin: 0,
+  },
   timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
 
   rankWrap: { display: "grid", gap: 10, marginTop: 16 },
@@ -299,17 +335,29 @@ const styles = {
     background: "rgba(255,255,255,0.03)",
     border: "1px solid #222",
     cursor: "pointer",
+    flexWrap: "wrap",
   },
   rankActive: { boxShadow: "0 0 12px rgba(255,140,0,.5)", borderColor: ORANGE },
   rankFilled: { background: "rgba(255,255,255,0.05)" },
 
   rankBadge: {
-    width: 36, height: 36, display: "grid", placeItems: "center",
-    borderRadius: 999, border: `1px solid ${ORANGE}`, color: ORANGE, fontWeight: 800
+    width: 36,
+    height: 36,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 999,
+    border: `1px solid ${ORANGE}`,
+    color: ORANGE,
+    fontWeight: 800,
+    flex: "0 0 auto",
   },
-  rankContent: { flex: 1 },
+  rankContent: { flex: "1 1 200px", minWidth: 0 },
 
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+    gap: 10,
+  },
   choiceChip: {
     padding: "12px 14px",
     borderRadius: 12,
@@ -318,6 +366,7 @@ const styles = {
     color: "#fff",
     cursor: "pointer",
     transition: "transform .08s ease, box-shadow .08s ease",
+    textAlign: "center",
   },
   glow: { boxShadow: "0 0 16px rgba(255,140,0,.55)", borderColor: ORANGE },
 
@@ -341,13 +390,30 @@ const styles = {
   },
 
   primaryBtn: {
-    padding: "12px 18px", borderRadius: 12, border: "none",
-    background: ORANGE, color: "#000", fontWeight: 800, cursor: "pointer",
-    boxShadow: "0 0 14px rgba(255,140,0,.8)"
+    padding: "12px 18px",
+    borderRadius: 12,
+    border: "none",
+    background: ORANGE,
+    color: "#000",
+    fontWeight: 800,
+    cursor: "pointer",
+    boxShadow: "0 0 14px rgba(255,140,0,.8)",
   },
   secondaryBtn: {
-    padding: "12px 16px", borderRadius: 12, border: `1px solid ${ORANGE}`,
-    background: "transparent", color: ORANGE, cursor: "pointer"
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
+    cursor: "pointer",
   },
+
+  actionsRow: {
+    display: "flex",
+    gap: 12,
+    marginTop: 16,
+    flexWrap: "wrap",
+  },
+
   text: { opacity: 0.9 },
 };
