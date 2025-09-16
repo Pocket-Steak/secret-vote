@@ -223,7 +223,6 @@ export default function Create() {
         <div style={styles.warnBox}>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li>No emojis allowed; plain text only.</li>
-            <li>Options must be unique (case-insensitive).</li>
             <li>Poll locks on launch; voters must rank all choices.</li>
             <li>Share the six-character room code with voters.</li>
           </ul>
