@@ -85,7 +85,7 @@ export default function Create() {
   function generateCode() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let s = "";
-    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * (chars.length))];
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
     return s;
   }
 
@@ -125,7 +125,7 @@ export default function Create() {
       });
 
       if (!error) {
-        setRoomCode(code);            // show success panel with copy button
+        setRoomCode(code);            // show success panel with copy-only UI
         setClosesAtISO(closesAt.toISOString());
         setCopied(false);
         return;
@@ -254,7 +254,7 @@ export default function Create() {
                 <li>No emojis allowed; plain text only.</li>
                 <li>Options must be unique (case-insensitive).</li>
                 <li>Poll locks on launch; voters must rank all choices.</li>
-                <li>Results are live and accessible via the same link.</li>
+                <li>Share the six-character room code with voters.</li>
               </ul>
             </div>
 
@@ -278,21 +278,17 @@ export default function Create() {
           <>
             <h1 style={styles.title}>Poll launched!</h1>
             <div style={styles.successBox}>
-              <div style={{ marginBottom: 8 }}>
-                <span style={{ opacity: 0.8 }}>Room code:</span>{" "}
-                <b style={{ fontSize: 18 }}>{roomCode}</b>
+              <div style={{ marginBottom: 6 }}>
+                Share this code with voters:
               </div>
-              <div style={{ marginBottom: 12 }}>
-                Ends in <b>{endsIn}</b>
-              </div>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button onClick={copyCode} style={styles.secondaryBtn}>
+              <div style={styles.codeRow}>
+                <div style={styles.codeBox}>{roomCode}</div>
+                <button onClick={copyCode} style={styles.copyBtn}>
                   {copied ? "Copied!" : "Copy Room Code"}
                 </button>
-                <button onClick={() => nav(`/room/${roomCode}`)} style={styles.primaryBtn}>
-                  Open Room
-                </button>
+              </div>
+              <div style={{ marginTop: 10, opacity: 0.85 }}>
+                Ends in <b>{endsIn}</b>
               </div>
             </div>
           </>
@@ -407,6 +403,26 @@ const styles = {
     background: "rgba(255,255,255,0.03)",
     border: "1px solid #222",
     boxShadow: "0 0 14px rgba(255,140,0,.35)",
+  },
+  codeRow: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
+  codeBox: {
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    letterSpacing: 1.5,
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: `1px solid rgba(255,140,0,.5)`,
+    background: "rgba(255,140,0,.06)",
+    color: "#ffe3c2",
+    fontWeight: 800,
+    boxShadow: "0 0 12px rgba(255,140,0,.25) inset",
+  },
+  copyBtn: {
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
+    cursor: "pointer",
   },
 
   primaryBtn: {
