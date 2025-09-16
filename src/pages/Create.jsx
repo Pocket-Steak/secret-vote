@@ -1,3 +1,4 @@
+// src/pages/Create.jsx
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -10,6 +11,11 @@ export default function Create() {
   const [title, setTitle] = useState("");
   const [options, setOptions] = useState(["", ""]); // start with 2 fields
   const [duration, setDuration] = useState("120");  // minutes: 30, 120, 1440
+
+  // After-create UI
+  const [roomCode, setRoomCode] = useState(null);
+  const [closesAtISO, setClosesAtISO] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   // ——— helpers ———
   const canAddMore = options.length < 10;
@@ -119,7 +125,9 @@ export default function Create() {
       });
 
       if (!error) {
-        nav(`/room/${code}`);
+        setRoomCode(code);            // show success panel with copy button
+        setClosesAtISO(closesAt.toISOString());
+        setCopied(false);
         return;
       }
       // 23505 = unique_violation (code collision). Otherwise, fail fast.
@@ -141,110 +149,154 @@ export default function Create() {
     hasEmoji ||
     trimmed.some((t) => !t); // all visible fields must be non-empty
 
+  function copyCode() {
+    if (!roomCode) return;
+    navigator.clipboard?.writeText(roomCode).then(
+      () => setCopied(true),
+      () => alert("Copy failed — please copy manually.")
+    );
+  }
+
+  // simple countdown string
+  const endsIn = (() => {
+    if (!closesAtISO) return "";
+    const ms = Math.max(0, new Date(closesAtISO).getTime() - Date.now());
+    const h = Math.floor(ms / 3_600_000);
+    const m = Math.floor((ms % 3_600_000) / 60_000);
+    const s = Math.floor((ms % 60_000) / 1000);
+    return `${h}h ${m}m ${s}s`;
+  })();
+
   return (
     <div style={styles.wrap}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Create a Poll</h1>
+        {!roomCode ? (
+          <>
+            <h1 style={styles.title}>Create a Poll</h1>
 
-        {/* Title */}
-        <label style={styles.label}>
-          Poll Title <span style={styles.sub}>(max 60 chars, plain text)</span>
-        </label>
-        <input
-          style={styles.input}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Where should we eat dinner?"
-          maxLength={60}
-        />
+            {/* Title */}
+            <label style={styles.label}>
+              Poll Title <span style={styles.sub}>(max 60 chars, plain text)</span>
+            </label>
+            <input
+              style={styles.input}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Where should we eat dinner?"
+              maxLength={60}
+            />
 
-        {/* Options */}
-        <label style={{ ...styles.label, marginTop: 16 }}>
-          Options <span style={styles.sub}>(2–10, max 30 chars, no duplicates)</span>
-        </label>
+            {/* Options */}
+            <label style={{ ...styles.label, marginTop: 16 }}>
+              Options <span style={styles.sub}>(2–10, max 30 chars, no duplicates)</span>
+            </label>
 
-        <div style={styles.list}>
-          {options.map((val, i) => (
-            <div
-              key={i}
-              style={styles.optionRow}
-              draggable
-              onDragStart={(e) => onDragStart(e, i)}
-              onDragOver={(e) => onDragOver(e, i)}
-              onDrop={(e) => onDrop(e, i)}
-              title="Drag to reorder"
-            >
-              <div style={styles.dragHandle}>::</div>
-              <input
-                style={styles.optionInput}
-                value={val}
-                onChange={(e) => setOptionAt(i, e.target.value)}
-                placeholder={`Option ${i + 1}`}
-                maxLength={30}
-              />
+            <div style={styles.list}>
+              {options.map((val, i) => (
+                <div
+                  key={i}
+                  style={styles.optionRow}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, i)}
+                  onDragOver={(e) => onDragOver(e, i)}
+                  onDrop={(e) => onDrop(e, i)}
+                  title="Drag to reorder"
+                >
+                  <div style={styles.dragHandle}>::</div>
+                  <input
+                    style={styles.optionInput}
+                    value={val}
+                    onChange={(e) => setOptionAt(i, e.target.value)}
+                    placeholder={`Option ${i + 1}`}
+                    maxLength={30}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeOption(i)}
+                    style={{ ...styles.iconBtn, opacity: options.length <= 2 ? 0.4 : 1 }}
+                    disabled={options.length <= 2}
+                    title={options.length <= 2 ? "Need at least 2 options" : "Remove option"}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button
                 type="button"
-                onClick={() => removeOption(i)}
-                style={{ ...styles.iconBtn, opacity: options.length <= 2 ? 0.4 : 1 }}
-                disabled={options.length <= 2}
-                title={options.length <= 2 ? "Need at least 2 options" : "Remove option"}
+                onClick={addOption}
+                style={{ ...styles.ghostBtn, opacity: canAddMore ? 1 : 0.4 }}
+                disabled={!canAddMore}
               >
-                ✕
+                + Add option
               </button>
             </div>
-          ))}
-        </div>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={addOption}
-            style={{ ...styles.ghostBtn, opacity: canAddMore ? 1 : 0.4 }}
-            disabled={!canAddMore}
-          >
-            + Add option
-          </button>
-        </div>
+            {/* Duration */}
+            <label style={{ ...styles.label, marginTop: 16 }}>
+              Duration <span style={styles.sub}>(everyone sees a countdown)</span>
+            </label>
+            <select
+              style={styles.select}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            >
+              <option value="30">30 minutes</option>
+              <option value="120">2 hours</option>
+              <option value="1440">24 hours</option>
+            </select>
 
-        {/* Duration */}
-        <label style={{ ...styles.label, marginTop: 16 }}>
-          Duration <span style={styles.sub}>(everyone sees a countdown)</span>
-        </label>
-        <select
-          style={styles.select}
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-        >
-          <option value="30">30 minutes</option>
-          <option value="120">2 hours</option>
-          <option value="1440">24 hours</option>
-        </select>
+            {/* Notes */}
+            <div style={styles.warnBox}>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                <li>No emojis allowed; plain text only.</li>
+                <li>Options must be unique (case-insensitive).</li>
+                <li>Poll locks on launch; voters must rank all choices.</li>
+                <li>Results are live and accessible via the same link.</li>
+              </ul>
+            </div>
 
-        {/* Notes */}
-        <div style={styles.warnBox}>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li>No emojis allowed; plain text only.</li>
-            <li>Options must be unique (case-insensitive).</li>
-            <li>Poll locks on launch; voters must rank all choices.</li>
-            <li>Results are live and accessible via the same link/QR.</li>
-          </ul>
-        </div>
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+              <button type="button" onClick={() => nav("/")} style={styles.secondaryBtn}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createPoll}
+                style={{ ...styles.primaryBtn, opacity: disableCreate ? 0.6 : 1 }}
+                disabled={disableCreate}
+                title={disableCreate ? "Complete all fields and fix validation" : "Create & Launch"}
+              >
+                Create & Launch
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 style={styles.title}>Poll launched!</h1>
+            <div style={styles.successBox}>
+              <div style={{ marginBottom: 8 }}>
+                <span style={{ opacity: 0.8 }}>Room code:</span>{" "}
+                <b style={{ fontSize: 18 }}>{roomCode}</b>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                Ends in <b>{endsIn}</b>
+              </div>
 
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-          <button type="button" onClick={() => nav("/")} style={styles.secondaryBtn}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={createPoll}
-            style={{ ...styles.primaryBtn, opacity: disableCreate ? 0.6 : 1 }}
-            disabled={disableCreate}
-            title={disableCreate ? "Complete all fields and fix validation" : "Create & Launch"}
-          >
-            Create & Launch
-          </button>
-        </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button onClick={copyCode} style={styles.secondaryBtn}>
+                  {copied ? "Copied!" : "Copy Room Code"}
+                </button>
+                <button onClick={() => nav(`/room/${roomCode}`)} style={styles.primaryBtn}>
+                  Open Room
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -347,6 +399,14 @@ const styles = {
     background: "rgba(255,140,0,.07)",
     border: `1px solid rgba(255,140,0,.4)`,
     color: "#ffd9b3",
+  },
+
+  successBox: {
+    padding: 16,
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid #222",
+    boxShadow: "0 0 14px rgba(255,140,0,.35)",
   },
 
   primaryBtn: {
