@@ -39,7 +39,7 @@ export default function Landing() {
     };
   }, [code]);
 
-  // --- countdown ---
+  // countdown
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -50,12 +50,11 @@ export default function Landing() {
     if (!poll?.closes_at) return "";
     const end = new Date(poll.closes_at).getTime();
     const diff = Math.max(0, end - now);
+    if (diff <= 0) return "Voting closed";
     const mins = Math.floor(diff / 60000);
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    if (diff <= 0) return "Voting closed";
-    if (h > 0) return `Ends in ${h}h ${m}m`;
-    return `Ends in ${m}m`;
+    return h > 0 ? `Ends in ${h}h ${m}m` : `Ends in ${m}m`;
   }, [poll, now]);
 
   async function copyCode() {
@@ -64,7 +63,7 @@ export default function Landing() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1100);
     } catch {
-      // no-op
+      /* no-op */
     }
   }
 
@@ -95,37 +94,40 @@ export default function Landing() {
   return (
     <div style={s.wrap}>
       <div style={s.card}>
-        <h1 style={s.title}>{poll.title}</h1>
+        {/* Headline */}
+        <h1 style={s.title}>Poll launched!</h1>
 
-        {/* code + copy */}
-        <div style={s.headerRow}>
-          <div style={s.codePill}>
-            <span style={{ opacity: 0.8 }}>Code:&nbsp;</span>
-            <span style={{ fontWeight: 800 }}>{code}</span>
+        {/* Share block */}
+        <div style={s.shareBox}>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>
+            Share this code with voters:
           </div>
 
-          <button onClick={copyCode} style={s.copyBtn} title="Copy room code">
-            {copied ? "Copied!" : "Copy"}
-          </button>
+          <div style={s.shareRow}>
+            <div style={s.codePill} title="Room code">
+              {code}
+            </div>
+            <button onClick={copyCode} style={s.copyBtn} title="Copy room code">
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
 
-          <div style={s.ends}>{endsText}</div>
+          <div style={{ marginTop: 10, fontWeight: 600 }}>
+            {endsText}
+          </div>
+
+          {/* Actions: Vote / View Results */}
+          <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+            <button style={s.primaryBtn} onClick={() => nav(`/vote/${code}`)}>
+              Vote
+            </button>
+            <button style={s.secondaryBtn} onClick={() => nav(`/results/${code}`)}>
+              View Results
+            </button>
+          </div>
         </div>
 
-        {/* actions */}
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-          <button style={s.primaryBtn} onClick={() => nav(`/vote/${code}`)}>
-            Vote
-          </button>
-          <button style={s.secondaryBtn} onClick={() => nav(`/results/${code}`)}>
-            View Results
-          </button>
-        </div>
-
-        {/* helper text */}
-        <p style={{ marginTop: 16, opacity: 0.8 }}>
-          Share the room code so people can vote or see live results.
-        </p>
-
+        {/* Footer link */}
         <button style={s.linkBtn} onClick={() => nav("/")}>
           Home
         </button>
@@ -154,36 +156,37 @@ const s = {
     fontSize: 28,
     textShadow: "0 0 12px rgba(255,140,0,.8)",
   },
-  headerRow: {
+  shareBox: {
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,140,0,.25)",
+    boxShadow: "0 0 14px rgba(255,140,0,.25) inset",
+  },
+  shareRow: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
-    marginTop: 12,
-    flexWrap: "wrap",
+    gap: 10,
   },
   codePill: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 4,
-    padding: "6px 12px",
-    borderRadius: 999,
+    padding: "10px 14px",
+    borderRadius: 12,
     border: "1px solid rgba(255,140,0,.5)",
     background: "rgba(255,140,0,.08)",
     color: "#ffd9b3",
+    fontWeight: 800,
+    letterSpacing: 1,
   },
   copyBtn: {
-    padding: "6px 12px",
-    borderRadius: 999,
+    padding: "10px 14px",
+    borderRadius: 12,
     border: `1px solid ${ORANGE}`,
     background: "transparent",
     color: ORANGE,
     cursor: "pointer",
-  },
-  ends: {
-    marginLeft: "auto",
-    color: "#ffd9b3",
-    textShadow: "0 0 10px rgba(255,140,0,.7)",
-    fontWeight: 700,
   },
   primaryBtn: {
     padding: "12px 18px",
@@ -204,7 +207,7 @@ const s = {
     cursor: "pointer",
   },
   linkBtn: {
-    marginTop: 12,
+    marginTop: 16,
     padding: "10px 14px",
     borderRadius: 10,
     border: "1px solid #333",
