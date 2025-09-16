@@ -59,13 +59,13 @@ export default function Landing() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1100);
-    } catch {/* ignore */}
+    } catch { /* ignore */ }
   }
 
   if (loading) {
     return (
       <div style={s.wrap}>
-        <div style={s.card}><div style={{ opacity: 0.8 }}>Loading…</div></div>
+        <div style={s.container}><div style={{ opacity: 0.8 }}>Loading…</div></div>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export default function Landing() {
   if (!poll) {
     return (
       <div style={s.wrap}>
-        <div style={s.card}>
+        <div style={s.container}>
           <h1 style={s.title}>Not found</h1>
           <p style={{ opacity: 0.8 }}>We couldn’t find a room with code “{code}”.</p>
           <button style={s.secondaryBtn} onClick={() => nav("/")}>Home</button>
@@ -84,7 +84,7 @@ export default function Landing() {
 
   return (
     <div style={s.wrap}>
-      <div style={s.card}>
+      <div style={s.container}>
         <h1 style={s.title}>Poll launched!</h1>
 
         <div style={s.shareBox}>
@@ -101,8 +101,8 @@ export default function Landing() {
 
           <div style={{ marginTop: 12, fontWeight: 600 }}>{endsText}</div>
 
-          {/* NEW: Action buttons */}
-          <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+          {/* Actions */}
+          <div style={s.actionsRow}>
             <button style={s.primaryBtn} onClick={() => nav(`/vote/${code}`)}>
               Vote
             </button>
@@ -119,25 +119,33 @@ export default function Landing() {
 }
 
 const s = {
+  // phone-safe outer shell
   wrap: {
     minHeight: "100vh",
     display: "grid",
     placeItems: "center",
     background: "#0b0f17",
     color: "#e9e9f1",
+    padding: "clamp(8px, 2vw, 16px)",
+    overflowX: "hidden",
   },
-  card: {
-    width: "min(900px, 94vw)",
-    padding: 24,
+  // container/card
+  container: {
+    width: "100%",
+    maxWidth: 720,
+    padding: "clamp(16px, 3vw, 24px)",
     borderRadius: 16,
     background: "rgba(255,255,255,0.04)",
     boxShadow: "0 0 20px rgba(255,140,0,.35)",
+    boxSizing: "border-box",
+    margin: "0 auto",
   },
   title: {
     margin: 0,
-    fontSize: 28,
+    fontSize: "clamp(22px, 4.5vw, 28px)",
     textShadow: "0 0 12px rgba(255,140,0,.8)",
   },
+  // share panel
   shareBox: {
     marginTop: 16,
     padding: 18,
@@ -146,10 +154,12 @@ const s = {
     border: "1px solid rgba(255,140,0,.25)",
     boxShadow: "0 0 14px rgba(255,140,0,.25) inset",
   },
+  // code + copy row — wraps on phones
   shareRow: {
     display: "flex",
     alignItems: "center",
     gap: 10,
+    flexWrap: "wrap",
   },
   codePill: {
     display: "inline-flex",
@@ -165,16 +175,23 @@ const s = {
   copyBtn: {
     padding: "10px 14px",
     borderRadius: 12,
-    border: `1px solid #ff8c00`,
+    border: `1px solid ${ORANGE}`,
     background: "transparent",
-    color: "#ff8c00",
+    color: ORANGE,
     cursor: "pointer",
+  },
+  // action buttons — wrap nicely on small screens
+  actionsRow: {
+    display: "flex",
+    gap: 12,
+    marginTop: 16,
+    flexWrap: "wrap",
   },
   primaryBtn: {
     padding: "12px 18px",
     borderRadius: 12,
     border: "none",
-    background: "#ff8c00",
+    background: ORANGE,
     color: "#000",
     fontWeight: 800,
     cursor: "pointer",
@@ -183,9 +200,9 @@ const s = {
   secondaryBtn: {
     padding: "12px 16px",
     borderRadius: 12,
-    border: `1px solid #ff8c00`,
+    border: `1px solid ${ORANGE}`,
     background: "transparent",
-    color: "#ff8c00",
+    color: ORANGE,
     cursor: "pointer",
   },
   linkBtn: {
