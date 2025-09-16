@@ -13,6 +13,7 @@ export default function Landing() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  // load poll
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -23,7 +24,6 @@ export default function Landing() {
         .eq("code", code)
         .limit(1)
         .maybeSingle();
-
       if (!mounted) return;
       if (error) {
         console.error(error);
@@ -33,10 +33,7 @@ export default function Landing() {
       }
       setLoading(false);
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [code]);
 
   // countdown
@@ -62,17 +59,13 @@ export default function Landing() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1100);
-    } catch {
-      /* no-op */
-    }
+    } catch {/* ignore */}
   }
 
   if (loading) {
     return (
       <div style={s.wrap}>
-        <div style={s.card}>
-          <div style={{ opacity: 0.8 }}>Loading…</div>
-        </div>
+        <div style={s.card}><div style={{ opacity: 0.8 }}>Loading…</div></div>
       </div>
     );
   }
@@ -83,9 +76,7 @@ export default function Landing() {
         <div style={s.card}>
           <h1 style={s.title}>Not found</h1>
           <p style={{ opacity: 0.8 }}>We couldn’t find a room with code “{code}”.</p>
-          <button style={s.secondaryBtn} onClick={() => nav("/")}>
-            Home
-          </button>
+          <button style={s.secondaryBtn} onClick={() => nav("/")}>Home</button>
         </div>
       </div>
     );
@@ -94,29 +85,23 @@ export default function Landing() {
   return (
     <div style={s.wrap}>
       <div style={s.card}>
-        {/* Headline */}
         <h1 style={s.title}>Poll launched!</h1>
 
-        {/* Share block */}
         <div style={s.shareBox}>
           <div style={{ fontWeight: 700, marginBottom: 10 }}>
             Share this code with voters:
           </div>
 
           <div style={s.shareRow}>
-            <div style={s.codePill} title="Room code">
-              {code}
-            </div>
+            <div style={s.codePill} title="Room code">{code}</div>
             <button onClick={copyCode} style={s.copyBtn} title="Copy room code">
-              {copied ? "Copied!" : "Copy"}
+              {copied ? "Copied!" : "Copy Room Code"}
             </button>
           </div>
 
-          <div style={{ marginTop: 10, fontWeight: 600 }}>
-            {endsText}
-          </div>
+          <div style={{ marginTop: 12, fontWeight: 600 }}>{endsText}</div>
 
-          {/* Actions: Vote / View Results */}
+          {/* NEW: Action buttons */}
           <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
             <button style={s.primaryBtn} onClick={() => nav(`/vote/${code}`)}>
               Vote
@@ -127,10 +112,7 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Footer link */}
-        <button style={s.linkBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+        <button style={s.linkBtn} onClick={() => nav("/")}>Home</button>
       </div>
     </div>
   );
@@ -183,16 +165,16 @@ const s = {
   copyBtn: {
     padding: "10px 14px",
     borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
+    border: `1px solid #ff8c00`,
     background: "transparent",
-    color: ORANGE,
+    color: "#ff8c00",
     cursor: "pointer",
   },
   primaryBtn: {
     padding: "12px 18px",
     borderRadius: 12,
     border: "none",
-    background: ORANGE,
+    background: "#ff8c00",
     color: "#000",
     fontWeight: 800,
     cursor: "pointer",
@@ -201,9 +183,9 @@ const s = {
   secondaryBtn: {
     padding: "12px 16px",
     borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
+    border: `1px solid #ff8c00`,
     background: "transparent",
-    color: ORANGE,
+    color: "#ff8c00",
     cursor: "pointer",
   },
   linkBtn: {
