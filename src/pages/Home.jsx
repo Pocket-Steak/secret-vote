@@ -5,6 +5,9 @@ export default function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState("");
 
+  // Use Vite's base URL so the image works on GitHub Pages (/secret-vote/)
+  const logoSrc = `${import.meta.env.BASE_URL}TheSecretVote.png`;
+
   function goCreate() {
     nav("/create");
   }
@@ -18,9 +21,8 @@ export default function Home() {
 
   return (
     <div style={styles.wrap}>
-      {/* Logo closer to the top */}
       <img
-        src="/TheSecretVote.png"
+        src={logoSrc}
         alt="The Secret Vote"
         style={styles.logo}
         loading="eager"
@@ -35,7 +37,7 @@ export default function Home() {
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="Enter 6-char code"
+            placeholder="ENTER 6-CHAR CODE"
             maxLength={6}
             style={styles.input}
           />
@@ -51,42 +53,36 @@ export default function Home() {
 const ORANGE = "#ff8c00";
 
 const styles = {
-  // Move content toward the top: use flex column + small padding
   wrap: {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 12,                 // tighter overall spacing
-    paddingTop: 24,          // small top padding so logo isn’t glued to the edge
+    gap: 12,
+    paddingTop: 24,
     background: "#0b0f17",
     color: "#e9e9f1",
   },
 
-  // Responsive logo with subtle glow; sits closer to the top
   logo: {
-    width: "min(380px, 70vw)",  // scales down on phones
+    width: "min(380px, 70vw)",
     height: "auto",
     filter: "drop-shadow(0 0 12px rgba(255,140,0,.6))",
-    marginBottom: 8,            // small gap to the card
+    marginBottom: 8,
   },
 
-  // Slightly tighter card
   card: {
-    padding: 16,                 // was 24
+    padding: 16,
     borderRadius: 16,
     background: "rgba(255,255,255,0.04)",
     boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    width: "min(420px, 92vw)",   // keeps it narrow on mobile
+    width: "min(420px, 92vw)",
     display: "flex",
     flexDirection: "column",
-    gap: 10,                     // tighter spacing inside
+    gap: 10,
   },
 
-  row: {
-    display: "flex",
-    gap: 8,
-  },
+  row: { display: "flex", gap: 8 },
 
   input: {
     padding: "12px 14px",
@@ -95,7 +91,7 @@ const styles = {
     background: "#121727",
     color: "#fff",
     width: "100%",
-    maxWidth: 220,               // keep form compact
+    maxWidth: 220,
     letterSpacing: 2,
     textTransform: "uppercase",
     outline: "none",
