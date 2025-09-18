@@ -13,8 +13,8 @@ export default function Landing() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // NEW: ballots state
-  const [ballots, setBallots] = useState(0);
+  // LIVE rows from poll_results (to compute ballot count like Results.jsx)
+  const [rows, setRows] = useState([]);
 
   // load poll
   useEffect(() => {
@@ -41,29 +41,28 @@ export default function Landing() {
     };
   }, [code]);
 
-  // NEW: poll ballots — refresh every 2s
+  // refresh poll_results every 2s (only after poll is known)
   useEffect(() => {
     if (!poll?.id) return;
     let cancelled = false;
 
-    const fetchCount = async () => {
-      // Count rows in `votes` for this poll
-      const { count, error } = await supabase
-        .from("votes")
-        .select("*", { count: "exact", head: true })
+    const read = async () => {
+      const { data, error } = await supabase
+        .from("poll_results")
+        .select("*")
         .eq("poll_id", poll.id);
       if (!cancelled) {
         if (error) {
           console.error(error);
-          setBallots(0);
+          setRows([]);
         } else {
-          setBallots(count ?? 0);
+          setRows(Array.isArray(data) ? data : []);
         }
       }
     };
 
-    fetchCount();
-    const t = setInterval(fetchCount, 2000);
+    read();
+    const t = setInterval(read, 2000);
     return () => {
       cancelled = true;
       clearInterval(t);
@@ -87,6 +86,30 @@ export default function Landing() {
     const m = mins % 60;
     return h > 0 ? `Ends in ${h}h ${m}m` : `Ends in ${m}m`;
   }, [poll, now]);
+
+  // compute ballotsCount the same way Results.jsx does
+  const weights = useMemo(() => {
+    const scheme = Array.isArray(poll?.point_scheme) ? poll.point_scheme : [];
+    return scheme.map((n) => Number(n) || 0);
+  }, [poll?.point_scheme]);
+
+  const totals = useMemo(() => {
+    const opts = Array.isArray(poll?.options) ? poll.options : [];
+    const map = new Map(opts.map((o) => [o, 0]));
+    for (const r of rows) {
+      if (map.has(r.option)) {
+        map.set(r.option, (map.get(r.option) || 0) + (Number(r.points) || 0));
+      }
+    }
+    return Array.from(map.entries()).map(([option, points]) => ({ option, points }));
+  }, [rows, poll?.options]);
+
+  const ballots = useMemo(() => {
+    const perBallot = weights.reduce((a, b) => a + b, 0);
+    if (!perBallot) return 0;
+    const totalPoints = totals.reduce((a, r) => a + (Number(r.points) || 0), 0);
+    return Math.round(totalPoints / perBallot);
+  }, [weights, totals]);
 
   async function copyCode() {
     try {
@@ -229,7 +252,7 @@ const s = {
     cursor: "pointer",
   },
 
-  // NEW: info row for countdown + ballots
+  // info row for countdown + ballots
   infoRow: {
     display: "flex",
     gap: 10,
