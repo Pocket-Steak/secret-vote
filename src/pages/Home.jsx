@@ -33,6 +33,9 @@ export default function Home() {
           Create Poll
         </button>
 
+        {/* New: label above the code entry */}
+        <div style={styles.entryLabel}>Have a code? Enter it below to cast your vote:</div>
+
         <form onSubmit={goToRoom} style={styles.row}>
           <input
             value={code}
@@ -40,6 +43,7 @@ export default function Home() {
             placeholder="ENTER 6-CHAR CODE"
             maxLength={6}
             style={styles.input}
+            aria-label="Enter 6-character room code"
           />
           <button type="submit" style={styles.secondaryBtn}>Go</button>
         </form>
@@ -80,6 +84,16 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 10,
+  },
+
+  // New: label styling
+  entryLabel: {
+    marginTop: 2,
+    marginBottom: 2,
+    fontWeight: 700,
+    fontSize: 14,
+    color: "#ffd9b3",
+    textShadow: "0 0 8px rgba(255,140,0,.35)",
   },
 
   row: { display: "flex", gap: 8 },
