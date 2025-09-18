@@ -13,6 +13,9 @@ export default function Landing() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  // NEW: ballots state
+  const [ballots, setBallots] = useState(0);
+
   // load poll
   useEffect(() => {
     let mounted = true;
@@ -33,8 +36,39 @@ export default function Landing() {
       }
       setLoading(false);
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [code]);
+
+  // NEW: poll ballots — refresh every 2s
+  useEffect(() => {
+    if (!poll?.id) return;
+    let cancelled = false;
+
+    const fetchCount = async () => {
+      // Count rows in `votes` for this poll
+      const { count, error } = await supabase
+        .from("votes")
+        .select("*", { count: "exact", head: true })
+        .eq("poll_id", poll.id);
+      if (!cancelled) {
+        if (error) {
+          console.error(error);
+          setBallots(0);
+        } else {
+          setBallots(count ?? 0);
+        }
+      }
+    };
+
+    fetchCount();
+    const t = setInterval(fetchCount, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [poll?.id]);
 
   // countdown
   const [now, setNow] = useState(Date.now());
@@ -59,13 +93,17 @@ export default function Landing() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1100);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   if (loading) {
     return (
       <div style={s.wrap}>
-        <div style={s.container}><div style={{ opacity: 0.8 }}>Loading…</div></div>
+        <div style={s.container}>
+          <div style={{ opacity: 0.8 }}>Loading…</div>
+        </div>
       </div>
     );
   }
@@ -76,7 +114,9 @@ export default function Landing() {
         <div style={s.container}>
           <h1 style={s.title}>Not found</h1>
           <p style={{ opacity: 0.8 }}>We couldn’t find a room with code “{code}”.</p>
-          <button style={s.secondaryBtn} onClick={() => nav("/")}>Home</button>
+          <button style={s.secondaryBtn} onClick={() => nav("/")}>
+            Home
+          </button>
         </div>
       </div>
     );
@@ -93,13 +133,19 @@ export default function Landing() {
           </div>
 
           <div style={s.shareRow}>
-            <div style={s.codePill} title="Room code">{code}</div>
+            <div style={s.codePill} title="Room code">
+              {code}
+            </div>
             <button onClick={copyCode} style={s.copyBtn} title="Copy room code">
               {copied ? "Copied!" : "Copy Room Code"}
             </button>
           </div>
 
-          <div style={{ marginTop: 12, fontWeight: 600 }}>{endsText}</div>
+          {/* Info row: countdown + ballots */}
+          <div style={s.infoRow}>
+            <div style={s.badge}>{endsText}</div>
+            <div style={s.badge}>Ballots: {ballots}</div>
+          </div>
 
           {/* Actions */}
           <div style={s.actionsRow}>
@@ -112,7 +158,9 @@ export default function Landing() {
           </div>
         </div>
 
-        <button style={s.linkBtn} onClick={() => nav("/")}>Home</button>
+        <button style={s.linkBtn} onClick={() => nav("/")}>
+          Home
+        </button>
       </div>
     </div>
   );
@@ -180,6 +228,25 @@ const s = {
     color: ORANGE,
     cursor: "pointer",
   },
+
+  // NEW: info row for countdown + ballots
+  infoRow: {
+    display: "flex",
+    gap: 10,
+    marginTop: 12,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  badge: {
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: "1px solid #333",
+    background: "#121727",
+    fontSize: 12,
+    letterSpacing: 0.5,
+    color: "#e9e9f1",
+  },
+
   // action buttons — wrap nicely on small screens
   actionsRow: {
     display: "flex",
