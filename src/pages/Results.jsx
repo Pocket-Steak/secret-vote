@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// src/pages/Results.jsx
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
-// minutes-only time
+// minutes-only countdown text
 function fmtHM(ms) {
   if (ms <= 0) return "0h 0m";
   const mTotal = Math.floor(ms / 60000);
@@ -19,27 +20,30 @@ export default function Results() {
   const { code: raw } = useParams();
   const code = (raw || "").toUpperCase();
 
-  // ---- state (hooks must stay in same order) ----
+  // ---- state ----
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [rows, setRows] = useState([]); // poll_results rows: { poll_id, option, points }
 
-  // sound
-  const [soundOn, setSoundOn] = useState(true);
-  const audioRef = useRef(null);
-  const lastLeaderRef = useRef(null);
-  const playedOnceRef = useRef(false);
-
-  // prepare audio
+  // inject wobble keyframes (once)
   useEffect(() => {
-    const src = `${import.meta.env.BASE_URL}win.wav`; // place win.wav in /public
-    const a = new Audio(src);
-    a.volume = 0.6;
-    audioRef.current = a;
-    return () => {
-      try { a.pause(); a.src = ""; } catch {}
-    };
+    const spinCSS = `
+      @keyframes crown-wobble {
+        0%   { transform: rotateZ(0deg); }
+        25%  { transform: rotateZ(10deg); }
+        50%  { transform: rotateZ(0deg); }
+        75%  { transform: rotateZ(-10deg); }
+        100% { transform: rotateZ(0deg); }
+      }
+    `;
+    let tag = document.getElementById("crown-wobble-keyframes");
+    if (!tag) {
+      tag = document.createElement("style");
+      tag.id = "crown-wobble-keyframes";
+      tag.textContent = spinCSS;
+      document.head.appendChild(tag);
+    }
   }, []);
 
   // fetch poll by code
@@ -52,6 +56,7 @@ export default function Results() {
         .select("*")
         .eq("code", code)
         .maybeSingle();
+
       if (!cancelled) {
         if (error) {
           console.error(error);
@@ -62,7 +67,9 @@ export default function Results() {
         setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [code]);
 
   // tick clock every 15s
@@ -93,7 +100,10 @@ export default function Results() {
 
     read();
     const t = setInterval(read, 2000);
-    return () => { cancelled = true; clearInterval(t); };
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
   }, [poll?.id]);
 
   // status
@@ -120,9 +130,14 @@ export default function Results() {
         map.set(r.option, (map.get(r.option) || 0) + (Number(r.points) || 0));
       }
     }
-    const arr = Array.from(map.entries()).map(([option, points]) => ({ option, points }));
-    arr.sort((a, b) => (b.points - a.points) || a.option.localeCompare(b.option));
-    // ranks with ties
+    const arr = Array.from(map.entries()).map(([option, points]) => ({
+      option,
+      points,
+    }));
+    arr.sort(
+      (a, b) => b.points - a.points || a.option.localeCompare(b.option)
+    );
+    // assign ranks with ties sharing same rank number
     let rank = 1;
     for (let i = 0; i < arr.length; i++) {
       if (i > 0 && arr[i].points === arr[i - 1].points) {
@@ -137,7 +152,7 @@ export default function Results() {
     return arr;
   }, [rows, poll?.options]);
 
-  // ballots count from points / ballot-sum
+  // ballots count = total points / sum(weights)
   const ballotsCount = useMemo(() => {
     const S = weights.reduce((a, b) => a + b, 0);
     if (!S) return 0;
@@ -145,128 +160,113 @@ export default function Results() {
     return Math.round(totalPoints / S);
   }, [weights, totals]);
 
-  const timeLeft = Math.max(0, (poll ? new Date(poll.closes_at).getTime() : 0) - now);
+  const timeLeft = Math.max(
+    0,
+    (poll ? new Date(poll.closes_at).getTime() : 0) - now
+  );
 
-  // --- play win sound on first show & whenever leader changes ---
-  useEffect(() => {
-    if (!totals.length) return;
-    const leaderKey = `${totals[0].option}|${totals[0].points}`;
-
-    // play once when results first appear
-    if (!playedOnceRef.current) {
-      playedOnceRef.current = true;
-      if (soundOn && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {/* autoplay might be blocked */});
-      }
-    } else if (lastLeaderRef.current && lastLeaderRef.current !== leaderKey) {
-      // leader changed -> play again
-      if (soundOn && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
-    }
-
-    lastLeaderRef.current = leaderKey;
-  }, [totals, soundOn]);
-
-  // ---- render branches (no hooks below this point) ----
+  // ---- render ----
   if (loading) {
     return ScreenWrap(
-      <>
-        <StyleTag />
-        <div style={styles.container}>
-          <h1 style={styles.title}>Room {code}</h1>
-          <p style={styles.text}>Loading…</p>
-        </div>
-      </>
+      <div style={styles.container}>
+        <h1 style={styles.title}>Room {code}</h1>
+        <p style={styles.text}>Loading…</p>
+      </div>
     );
   }
   if (!poll) {
     return ScreenWrap(
-      <>
-        <StyleTag />
-        <div style={styles.container}>
-          <h1 style={styles.title}>Room {code}</h1>
-          <p style={styles.text}>We couldn’t find this poll. Double-check the code.</p>
-          <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
-        </div>
-      </>
+      <div style={styles.container}>
+        <h1 style={styles.title}>Room {code}</h1>
+        <p style={styles.text}>
+          We couldn’t find this poll. Double-check the code.
+        </p>
+        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
+          Home
+        </button>
+      </div>
     );
   }
   if (status === "expired") {
     return ScreenWrap(
-      <>
-        <StyleTag />
-        <div style={styles.container}>
-          <h1 style={styles.title}>{poll.title}</h1>
-          <p style={{ ...styles.text, marginTop: 8 }}>
-            This page has gone the way of your New Year’s resolutions.
-          </p>
-          <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
-        </div>
-      </>
+      <div style={styles.container}>
+        <h1 style={styles.title}>{poll.title}</h1>
+        <p style={{ ...styles.text, marginTop: 8 }}>
+          This page has gone the way of your New Year’s resolutions.
+        </p>
+        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
+          Home
+        </button>
+      </div>
     );
   }
 
   return ScreenWrap(
-    <>
-      <StyleTag />
-      <div style={styles.container}>
-        {state?.tooSlow && <Banner text="Too slow — voting’s over, but here are the results." />}
-        {state?.thanks && <Banner text="Thanks for voting! You’re viewing live results." />}
+    <div style={styles.container}>
+      {/* Banners */}
+      {state?.tooSlow && (
+        <Banner text="Too slow — voting’s over, but here are the results." />
+      )}
+      {state?.thanks && (
+        <Banner text="Thanks for voting! You’re viewing live results." />
+      )}
 
-        {/* Header */}
-        <div style={styles.headerRow}>
-          <h1 style={styles.title}>{poll.title}</h1>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              style={styles.soundBtn}
-              onClick={() => setSoundOn((v) => !v)}
-              title={soundOn ? "Mute sound" : "Unmute sound"}
-            >
-              {soundOn ? "🔊" : "🔈"}
-            </button>
-            <div style={styles.timer}>
-              {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
-            </div>
-          </div>
-        </div>
-
-        <div style={styles.subRow}>
-          <span style={styles.badge}>Code: {code}</span>
-          <span style={styles.badge}>Ballots: {ballotsCount}</span>
-        </div>
-
-        {/* Results list */}
-        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-          {totals.map((row) => (
-            <div
-              key={row.option}
-              style={{
-                ...styles.resultRow,
-                ...(row.rank === 1 ? styles.firstPlace : {}),
-              }}
-              className={row.rank === 1 ? "pulseGlow" : undefined}
-            >
-              <div style={styles.rankCell}>
-                <span style={styles.rankNum}>{row.rank}</span>
-                {row.rank === 1 && <span style={styles.crown} className="spin">👑</span>}
-                {row.tie && <span style={styles.tieBadge}>TIE</span>}
-              </div>
-              <div style={styles.optionCell}>{row.option}</div>
-              <div style={styles.pointsCell}>{row.points} pts</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={styles.actionsRow}>
-          <button style={styles.secondaryBtn} onClick={() => nav(`/room/${code}`)}>Back to Room</button>
-          <button style={styles.linkBtn} onClick={() => nav("/")}>Home</button>
+      {/* Header */}
+      <div style={styles.headerRow}>
+        <h1 style={styles.title}>{poll.title}</h1>
+        <div style={styles.timer}>
+          {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
         </div>
       </div>
-    </>
+      <div style={styles.subRow}>
+        <span style={styles.badge}>Code: {code}</span>
+        <span style={styles.badge}>Ballots: {ballotsCount}</span>
+      </div>
+
+      {/* Results list */}
+      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+        {totals.map((row) => (
+          <div
+            key={row.option}
+            style={{
+              ...styles.resultRow,
+              ...(row.rank === 1 ? styles.firstPlace : {}),
+            }}
+          >
+            <div style={styles.rankCell}>
+              <span style={styles.rankNum}>{row.rank}</span>
+              {row.rank === 1 && (
+                <span
+                  style={{
+                    ...styles.crown,
+                    animation: "crown-wobble 1.2s ease-in-out infinite",
+                    transformOrigin: "50% 70%", // keeps it upright while wobbling
+                  }}
+                  aria-hidden
+                >
+                  👑
+                </span>
+              )}
+              {row.tie && <span style={styles.tieBadge}>TIE</span>}
+            </div>
+            <div style={styles.optionCell}>{row.option}</div>
+            <div style={styles.pointsCell}>{row.points} pts</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.actionsRow}>
+        <button
+          style={styles.secondaryBtn}
+          onClick={() => nav(`/room/${code}`)}
+        >
+          Back to Room
+        </button>
+        <button style={styles.linkBtn} onClick={() => nav("/")}>
+          Home
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -276,32 +276,6 @@ function Banner({ text }) {
 }
 function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
-}
-
-/** Scoped animations */
-function StyleTag() {
-  return (
-    <style>{`
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to   { transform: rotate(360deg); }
-      }
-      .spin {
-        display: inline-block;
-        animation: spin 1.2s linear infinite;
-        filter: drop-shadow(0 0 6px rgba(255,140,0,.9));
-      }
-
-      @keyframes pulseGlow {
-        0%   { box-shadow: 0 0 10px rgba(255,140,0,.35); }
-        50%  { box-shadow: 0 0 22px rgba(255,140,0,.75); }
-        100% { box-shadow: 0 0 10px rgba(255,140,0,.35); }
-      }
-      .pulseGlow {
-        animation: pulseGlow 1.6s ease-in-out infinite;
-      }
-    `}</style>
-  );
 }
 
 const styles = {
@@ -315,6 +289,7 @@ const styles = {
     padding: "clamp(8px, 2vw, 16px)",
     overflowX: "hidden",
   },
+
   // container (card)
   container: {
     width: "100%",
@@ -327,6 +302,7 @@ const styles = {
     margin: "0 auto",
   },
 
+  // header
   headerRow: {
     display: "flex",
     alignItems: "center",
@@ -341,6 +317,7 @@ const styles = {
   },
   timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
 
+  // sub badges
   subRow: {
     marginTop: 8,
     display: "flex",
@@ -357,6 +334,7 @@ const styles = {
     fontSize: 12,
   },
 
+  // result rows
   resultRow: {
     display: "flex",
     alignItems: "center",
@@ -368,7 +346,7 @@ const styles = {
     border: "1px solid #222",
     minWidth: 0,
   },
-  firstPlace: { borderColor: ORANGE }, // pulse handled by class
+  firstPlace: { borderColor: ORANGE, boxShadow: "0 0 14px rgba(255,140,0,.45)" },
   rankCell: { display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" },
   rankNum: {
     width: 36,
@@ -380,7 +358,7 @@ const styles = {
     color: ORANGE,
     fontWeight: 800,
   },
-  crown: { marginLeft: 2 },
+  crown: { marginLeft: 2, filter: "drop-shadow(0 0 6px rgba(255,140,0,.8))" },
   tieBadge: {
     marginLeft: 6,
     padding: "2px 8px",
@@ -397,6 +375,7 @@ const styles = {
     flex: "0 0 auto",
   },
 
+  // actions
   actionsRow: {
     marginTop: 16,
     display: "flex",
@@ -420,15 +399,7 @@ const styles = {
     cursor: "pointer",
   },
 
-  soundBtn: {
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#ffd9b3",
-    borderRadius: 10,
-    padding: "6px 10px",
-    cursor: "pointer",
-  },
-
+  // misc
   text: { opacity: 0.9 },
   banner: {
     marginBottom: 12,
