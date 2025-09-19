@@ -26,21 +26,22 @@ export default function Results() {
   const [now, setNow] = useState(Date.now());
   const [rows, setRows] = useState([]); // poll_results rows: { poll_id, option, points }
 
-  // inject wobble keyframes (once)
+  // inject 3D spin keyframes (once)
   useEffect(() => {
     const spinCSS = `
-      @keyframes crown-wobble {
-        0%   { transform: rotateZ(0deg); }
-        25%  { transform: rotateZ(10deg); }
-        50%  { transform: rotateZ(0deg); }
-        75%  { transform: rotateZ(-10deg); }
-        100% { transform: rotateZ(0deg); }
+      @keyframes crown-spin3d {
+        0%   { transform: perspective(700px) rotateY(0deg); }
+        50%  { transform: perspective(700px) rotateY(180deg); }
+        100% { transform: perspective(700px) rotateY(360deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reduce-motion { animation: none !important; }
       }
     `;
-    let tag = document.getElementById("crown-wobble-keyframes");
+    let tag = document.getElementById("crown-spin3d-keyframes");
     if (!tag) {
       tag = document.createElement("style");
-      tag.id = "crown-wobble-keyframes";
+      tag.id = "crown-spin3d-keyframes";
       tag.textContent = spinCSS;
       document.head.appendChild(tag);
     }
@@ -239,9 +240,11 @@ export default function Results() {
                 <span
                   style={{
                     ...styles.crown,
-                    animation: "crown-wobble 1.2s ease-in-out infinite",
-                    transformOrigin: "50% 70%", // keeps it upright while wobbling
+                    animation: "crown-spin3d 1.1s linear infinite",
+                    transformOrigin: "50% 50%",
+                    display: "inline-block",
                   }}
+                  className="reduce-motion"
                   aria-hidden
                 >
                   👑
