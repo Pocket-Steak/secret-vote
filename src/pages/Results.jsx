@@ -26,74 +26,6 @@ export default function Results() {
   const [now, setNow] = useState(Date.now());
   const [rows, setRows] = useState([]); // poll_results rows: { poll_id, option, points }
 
-  // inject 3D spin keyframes + crown styles (once)
-  useEffect(() => {
-    const css = `
-      /* 3D crown spinner */
-      .crown3d {
-        width: 28px;
-        height: 28px;
-        position: relative;
-        perspective: 700px;
-        display: inline-block;
-        margin-left: 4px;
-        filter: drop-shadow(0 0 6px rgba(255,140,0,.9));
-        vertical-align: middle;
-      }
-      .crown3d .scene {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        transform-style: preserve-3d;
-        animation: crown-rotateY 1.15s linear infinite;
-      }
-      .crown3d .face {
-        position: absolute;
-        inset: 0;
-        backface-visibility: hidden;
-        transform-style: preserve-3d;
-      }
-      .crown3d .front {
-        transform: translateZ(0.01px) rotateY(0deg);
-        filter: brightness(1) saturate(1.05);
-      }
-      .crown3d .back {
-        transform: rotateY(180deg) translateZ(0.01px);
-        filter: brightness(0.78) saturate(0.95);
-      }
-
-      /* subtle “thickness” illusion with a rim */
-      .crown3d .rim {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: 6px;
-        box-shadow:
-          0 0 0 1px rgba(255,140,0,0.55) inset,
-          0 0 12px rgba(255,140,0,0.35) inset;
-        pointer-events: none;
-        transform: translateZ(-0.5px);
-      }
-
-      @keyframes crown-rotateY {
-        0%   { transform: rotateY(0deg)   rotateZ(0deg); }
-        50%  { transform: rotateY(180deg) rotateZ(0.6deg); } /* tiny tilt adds depth */
-        100% { transform: rotateY(360deg) rotateZ(0deg); }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .crown3d .scene { animation: none !important; }
-      }
-    `;
-    let tag = document.getElementById("crown-3d-css");
-    if (!tag) {
-      tag = document.createElement("style");
-      tag.id = "crown-3d-css";
-      tag.textContent = css;
-      document.head.appendChild(tag);
-    }
-  }, []);
-
   // fetch poll by code
   useEffect(() => {
     let cancelled = false;
@@ -250,60 +182,74 @@ export default function Results() {
   }
 
   return ScreenWrap(
-    <div style={styles.container}>
-      {/* Banners */}
-      {state?.tooSlow && (
-        <Banner text="Too slow — voting’s over, but here are the results." />
-      )}
-      {state?.thanks && (
-        <Banner text="Thanks for voting! You’re viewing live results." />
-      )}
+    <>
+      {/* Keyframes embedded directly so the crown animation always exists */}
+      <style>{`
+        @keyframes crown-spin3d {
+          0%   { transform: rotateY(0deg)   rotateZ(0deg); }
+          50%  { transform: rotateY(180deg) rotateZ(0.6deg); }
+          100% { transform: rotateY(360deg) rotateZ(0deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .reduce-motion { animation: none !important; }
+        }
+      `}</style>
 
-      {/* Header */}
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <div style={styles.timer}>
-          {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
+      <div style={styles.container}>
+        {/* Banners */}
+        {state?.tooSlow && (
+          <Banner text="Too slow — voting’s over, but here are the results." />
+        )}
+        {state?.thanks && (
+          <Banner text="Thanks for voting! You’re viewing live results." />
+        )}
+
+        {/* Header */}
+        <div style={styles.headerRow}>
+          <h1 style={styles.title}>{poll.title}</h1>
+          <div style={styles.timer}>
+            {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
+          </div>
+        </div>
+        <div style={styles.subRow}>
+          <span style={styles.badge}>Code: {code}</span>
+          <span style={styles.badge}>Ballots: {ballotsCount}</span>
+        </div>
+
+        {/* Results list */}
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {totals.map((row) => (
+            <div
+              key={row.option}
+              style={{
+                ...styles.resultRow,
+                ...(row.rank === 1 ? styles.firstPlace : {}),
+              }}
+            >
+              <div style={styles.rankCell}>
+                <span style={styles.rankNum}>{row.rank}</span>
+                {row.rank === 1 && <Crown3D />}
+                {row.tie && <span style={styles.tieBadge}>TIE</span>}
+              </div>
+              <div style={styles.optionCell}>{row.option}</div>
+              <div style={styles.pointsCell}>{row.points} pts</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.actionsRow}>
+          <button
+            style={styles.secondaryBtn}
+            onClick={() => nav(`/room/${code}`)}
+          >
+            Back to Room
+          </button>
+          <button style={styles.linkBtn} onClick={() => nav("/")}>
+            Home
+          </button>
         </div>
       </div>
-      <div style={styles.subRow}>
-        <span style={styles.badge}>Code: {code}</span>
-        <span style={styles.badge}>Ballots: {ballotsCount}</span>
-      </div>
-
-      {/* Results list */}
-      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-        {totals.map((row) => (
-          <div
-            key={row.option}
-            style={{
-              ...styles.resultRow,
-              ...(row.rank === 1 ? styles.firstPlace : {}),
-            }}
-          >
-            <div style={styles.rankCell}>
-              <span style={styles.rankNum}>{row.rank}</span>
-              {row.rank === 1 && <Crown3D />}
-              {row.tie && <span style={styles.tieBadge}>TIE</span>}
-            </div>
-            <div style={styles.optionCell}>{row.option}</div>
-            <div style={styles.pointsCell}>{row.points} pts</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={styles.actionsRow}>
-        <button
-          style={styles.secondaryBtn}
-          onClick={() => nav(`/room/${code}`)}
-        >
-          Back to Room
-        </button>
-        <button style={styles.linkBtn} onClick={() => nav("/")}>
-          Home
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -315,29 +261,63 @@ function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
 }
 
-/** A small inline-SVG crown with front/back faces for a 3D spin illusion */
+/** Inline-SVG crown with front/back faces for a 3D spin look */
 function Crown3D() {
+  const outer = {
+    width: 28,
+    height: 28,
+    position: "relative",
+    perspective: "700px",
+    display: "inline-block",
+    marginLeft: 4,
+    filter: "drop-shadow(0 0 6px rgba(255,140,0,.9))",
+    verticalAlign: "middle",
+  };
+  const scene = {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+    transformStyle: "preserve-3d",
+    animation: "crown-spin3d 1.15s linear infinite",
+  };
+  const faceBase = {
+    position: "absolute",
+    inset: 0,
+    backfaceVisibility: "hidden",
+    transformStyle: "preserve-3d",
+  };
+
   return (
-    <span className="crown3d" aria-hidden>
-      <span className="scene">
+    <span style={outer} aria-hidden>
+      <span style={scene} className="reduce-motion">
         {/* FRONT FACE */}
-        <span className="face front">
+        <span style={{ ...faceBase, transform: "translateZ(0.01px) rotateY(0deg)", filter: "brightness(1) saturate(1.05)" }}>
           <CrownSVG />
         </span>
 
         {/* BACK FACE (slightly darker) */}
-        <span className="face back">
+        <span style={{ ...faceBase, transform: "rotateY(180deg) translateZ(0.01px)", filter: "brightness(0.78) saturate(0.95)" }}>
           <CrownSVG />
         </span>
 
         {/* Rim overlay for “thickness” */}
-        <span className="rim" />
+        <span
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 6,
+            boxShadow:
+              "0 0 0 1px rgba(255,140,0,0.55) inset, 0 0 12px rgba(255,140,0,0.35) inset",
+            pointerEvents: "none",
+            transform: "translateZ(-0.5px)",
+          }}
+        />
       </span>
     </span>
   );
 }
 
-/** SVG crown icon (pure inline, no external asset) */
+/** SVG crown icon (inline; no external files) */
 function CrownSVG() {
   return (
     <svg
@@ -360,7 +340,7 @@ function CrownSVG() {
         </linearGradient>
       </defs>
 
-      {/* base shape */}
+      {/* crown silhouette */}
       <path
         d="M8 46 L16 18 L32 34 L48 18 L56 46 Z"
         fill="url(#gold)"
@@ -368,7 +348,7 @@ function CrownSVG() {
         strokeWidth="2"
         strokeLinejoin="round"
       />
-      {/* bottom bar */}
+      {/* base bar */}
       <rect x="10" y="44" width="44" height="8" rx="4" fill="#FF9A2E" stroke="#DB7600" strokeWidth="2" />
       {/* orbs */}
       <circle cx="16" cy="18" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
