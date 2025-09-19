@@ -1,5 +1,5 @@
 // src/pages/Results.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -145,6 +145,141 @@ export default function Results() {
     (poll ? new Date(poll.closes_at).getTime() : 0) - now
   );
 
+  // ---------- fireworks overlay ----------
+  const containerRef = useRef(null);
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+  const lastLeaderRef = useRef(null);
+  const runningRef = useRef(false);
+
+  // launch fireworks when there's a first place, and whenever leader changes
+  useEffect(() => {
+    if (!totals?.length) return;
+    const leader = totals.find((r) => r.rank === 1)?.option || null;
+    if (!leader) return;
+
+    // first time or changed leader
+    if (lastLeaderRef.current !== leader) {
+      lastLeaderRef.current = leader;
+      launchFireworks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totals]);
+
+  function launchFireworks() {
+    if (runningRef.current) return;
+
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    // size canvas to container
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    let start = performance.now();
+    runningRef.current = true;
+
+    // create a burst of N particles
+    function burst(x, y) {
+      const colors = [
+        "#ffef7a",
+        "#ffd166",
+        "#fb5607",
+        "#ff8c00",
+        "#80ffdb",
+        "#72ddf7",
+        "#f15bb5",
+      ];
+      const N = 40 + Math.floor(Math.random() * 30);
+      for (let i = 0; i < N; i++) {
+        const ang = (Math.PI * 2 * i) / N + Math.random() * 0.35;
+        const speed = 1.5 + Math.random() * 2.5;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(ang) * speed,
+          vy: Math.sin(ang) * speed - (Math.random() * 0.6 + 0.2),
+          life: 900 + Math.random() * 600, // ms
+          born: performance.now(),
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: 2 + Math.random() * 2.5,
+        });
+      }
+    }
+
+    // sprinkle bursts over time
+    let nextBurstAt = 0;
+    const duration = 3800; // ms total
+    const gravity = 0.025;
+
+    const loop = (t) => {
+      const elapsed = t - start;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (elapsed >= nextBurstAt && elapsed < duration - 250) {
+        const rx = 40 + Math.random() * (canvas.width - 80);
+        const ry = 60 + Math.random() * (canvas.height * 0.6);
+        burst(rx, ry);
+        nextBurstAt += 220 + Math.random() * 220;
+      }
+
+      // update & draw
+      const now = performance.now();
+      particles = particles.filter((p) => now - p.born < p.life);
+      for (const p of particles) {
+        const age = now - p.born;
+        p.vy += gravity;
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // fade out
+        const alpha = Math.max(0, 1 - age / p.life);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      if (elapsed < duration || particles.length) {
+        rafRef.current = requestAnimationFrame(loop);
+      } else {
+        cancelAnimationFrame(rafRef.current);
+        runningRef.current = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    };
+
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(loop);
+
+    // cleanup on unmount
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      runningRef.current = false;
+    };
+  }
+
+  // keep canvas in sync with container size
+  useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    const ro = new ResizeObserver(() => {
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
+
   // ---- render ----
   if (loading) {
     return ScreenWrap(
@@ -182,74 +317,70 @@ export default function Results() {
   }
 
   return ScreenWrap(
-    <>
-      {/* Keyframes embedded directly so the crown animation always exists */}
-      <style>{`
-        @keyframes crown-spin3d {
-          0%   { transform: rotateY(0deg)   rotateZ(0deg); }
-          50%  { transform: rotateY(180deg) rotateZ(0.6deg); }
-          100% { transform: rotateY(360deg) rotateZ(0deg); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .reduce-motion { animation: none !important; }
-        }
-      `}</style>
+    <div style={{ ...styles.container, position: "relative" }} ref={containerRef}>
+      {/* fireworks canvas overlay */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          mixBlendMode: "screen",
+        }}
+      />
 
-      <div style={styles.container}>
-        {/* Banners */}
-        {state?.tooSlow && (
-          <Banner text="Too slow — voting’s over, but here are the results." />
-        )}
-        {state?.thanks && (
-          <Banner text="Thanks for voting! You’re viewing live results." />
-        )}
+      {/* Banners */}
+      {state?.tooSlow && (
+        <Banner text="Too slow — voting’s over, but here are the results." />
+      )}
+      {state?.thanks && (
+        <Banner text="Thanks for voting! You’re viewing live results." />
+      )}
 
-        {/* Header */}
-        <div style={styles.headerRow}>
-          <h1 style={styles.title}>{poll.title}</h1>
-          <div style={styles.timer}>
-            {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
-          </div>
-        </div>
-        <div style={styles.subRow}>
-          <span style={styles.badge}>Code: {code}</span>
-          <span style={styles.badge}>Ballots: {ballotsCount}</span>
-        </div>
-
-        {/* Results list */}
-        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-          {totals.map((row) => (
-            <div
-              key={row.option}
-              style={{
-                ...styles.resultRow,
-                ...(row.rank === 1 ? styles.firstPlace : {}),
-              }}
-            >
-              <div style={styles.rankCell}>
-                <span style={styles.rankNum}>{row.rank}</span>
-                {row.rank === 1 && <Crown3D />}
-                {row.tie && <span style={styles.tieBadge}>TIE</span>}
-              </div>
-              <div style={styles.optionCell}>{row.option}</div>
-              <div style={styles.pointsCell}>{row.points} pts</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={styles.actionsRow}>
-          <button
-            style={styles.secondaryBtn}
-            onClick={() => nav(`/room/${code}`)}
-          >
-            Back to Room
-          </button>
-          <button style={styles.linkBtn} onClick={() => nav("/")}>
-            Home
-          </button>
+      {/* Header */}
+      <div style={styles.headerRow}>
+        <h1 style={styles.title}>{poll.title}</h1>
+        <div style={styles.timer}>
+          {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
         </div>
       </div>
-    </>
+      <div style={styles.subRow}>
+        <span style={styles.badge}>Code: {code}</span>
+        <span style={styles.badge}>Ballots: {ballotsCount}</span>
+      </div>
+
+      {/* Results list */}
+      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+        {totals.map((row) => (
+          <div
+            key={row.option}
+            style={{
+              ...styles.resultRow,
+              ...(row.rank === 1 ? styles.firstPlace : {}),
+            }}
+          >
+            <div style={styles.rankCell}>
+              <span style={styles.rankNum}>{row.rank}</span>
+              {row.tie && <span style={styles.tieBadge}>TIE</span>}
+            </div>
+            <div style={styles.optionCell}>{row.option}</div>
+            <div style={styles.pointsCell}>{row.points} pts</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.actionsRow}>
+        <button
+          style={styles.secondaryBtn}
+          onClick={() => nav(`/room/${code}`)}
+        >
+          Back to Room
+        </button>
+        <button style={styles.linkBtn} onClick={() => nav("/")}>
+          Home
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -259,112 +390,6 @@ function Banner({ text }) {
 }
 function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
-}
-
-/** Inline-SVG crown with front/back faces for a 3D spin look */
-function Crown3D() {
-  const outer = {
-    width: 28,
-    height: 28,
-    position: "relative",
-    perspective: "700px",
-    display: "inline-block",
-    marginLeft: 4,
-    filter: "drop-shadow(0 0 6px rgba(255,140,0,.9))",
-    verticalAlign: "middle",
-  };
-  const scene = {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-    transformStyle: "preserve-3d",
-    animation: "crown-spin3d 1.15s linear infinite",
-  };
-  const faceBase = {
-    position: "absolute",
-    inset: 0,
-    backfaceVisibility: "hidden",
-    transformStyle: "preserve-3d",
-  };
-
-  return (
-    <span style={outer} aria-hidden>
-      <span style={scene} className="reduce-motion">
-        {/* FRONT FACE */}
-        <span style={{ ...faceBase, transform: "translateZ(0.01px) rotateY(0deg)", filter: "brightness(1) saturate(1.05)" }}>
-          <CrownSVG />
-        </span>
-
-        {/* BACK FACE (slightly darker) */}
-        <span style={{ ...faceBase, transform: "rotateY(180deg) translateZ(0.01px)", filter: "brightness(0.78) saturate(0.95)" }}>
-          <CrownSVG />
-        </span>
-
-        {/* Rim overlay for “thickness” */}
-        <span
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: 6,
-            boxShadow:
-              "0 0 0 1px rgba(255,140,0,0.55) inset, 0 0 12px rgba(255,140,0,0.35) inset",
-            pointerEvents: "none",
-            transform: "translateZ(-0.5px)",
-          }}
-        />
-      </span>
-    </span>
-  );
-}
-
-/** SVG crown icon (inline; no external files) */
-function CrownSVG() {
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      width="100%"
-      height="100%"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ display: "block" }}
-    >
-      <defs>
-        <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FFD678" />
-          <stop offset="50%" stopColor="#FFB347" />
-          <stop offset="100%" stopColor="#FF8C00" />
-        </linearGradient>
-        <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.8)" />
-          <stop offset="50%" stopColor="rgba(255,255,255,0.15)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-        </linearGradient>
-      </defs>
-
-      {/* crown silhouette */}
-      <path
-        d="M8 46 L16 18 L32 34 L48 18 L56 46 Z"
-        fill="url(#gold)"
-        stroke="#DB7600"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      {/* base bar */}
-      <rect x="10" y="44" width="44" height="8" rx="4" fill="#FF9A2E" stroke="#DB7600" strokeWidth="2" />
-      {/* orbs */}
-      <circle cx="16" cy="18" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
-      <circle cx="48" cy="18" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
-      <circle cx="32" cy="34" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
-
-      {/* gentle shine */}
-      <path
-        d="M12 28 C20 22, 44 22, 52 28"
-        stroke="url(#shine)"
-        strokeWidth="3"
-        fill="none"
-        opacity="0.9"
-      />
-    </svg>
-  );
 }
 
 const styles = {
