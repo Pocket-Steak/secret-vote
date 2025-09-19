@@ -1,11 +1,11 @@
 // src/pages/Results.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
-// minutes-only countdown text
+// minutes-only time
 function fmtHM(ms) {
   if (ms <= 0) return "0h 0m";
   const mTotal = Math.floor(ms / 60000);
@@ -36,7 +36,6 @@ export default function Results() {
         .select("*")
         .eq("code", code)
         .maybeSingle();
-
       if (!cancelled) {
         if (error) {
           console.error(error);
@@ -117,7 +116,7 @@ export default function Results() {
     arr.sort(
       (a, b) => b.points - a.points || a.option.localeCompare(b.option)
     );
-    // assign ranks with ties sharing same rank number
+    // assign ranks with ties sharing the same rank number
     let rank = 1;
     for (let i = 0; i < arr.length; i++) {
       if (i > 0 && arr[i].points === arr[i - 1].points) {
@@ -132,9 +131,9 @@ export default function Results() {
     return arr;
   }, [rows, poll?.options]);
 
-  // ballots count = total points / sum(weights)
+  // derive ballot count safely: each ballot contributes sum(weights) total points
   const ballotsCount = useMemo(() => {
-    const S = weights.reduce((a, b) => a + b, 0);
+    const S = weights.reduce((a, b) => a + b, 0); // total points per ballot
     if (!S) return 0;
     const totalPoints = totals.reduce((a, r) => a + r.points, 0);
     return Math.round(totalPoints / S);
@@ -145,142 +144,7 @@ export default function Results() {
     (poll ? new Date(poll.closes_at).getTime() : 0) - now
   );
 
-  // ---------- fireworks overlay ----------
-  const containerRef = useRef(null);
-  const canvasRef = useRef(null);
-  const rafRef = useRef(null);
-  const lastLeaderRef = useRef(null);
-  const runningRef = useRef(false);
-
-  // launch fireworks when there's a first place, and whenever leader changes
-  useEffect(() => {
-    if (!totals?.length) return;
-    const leader = totals.find((r) => r.rank === 1)?.option || null;
-    if (!leader) return;
-
-    // first time or changed leader
-    if (lastLeaderRef.current !== leader) {
-      lastLeaderRef.current = leader;
-      launchFireworks();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totals]);
-
-  function launchFireworks() {
-    if (runningRef.current) return;
-
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
-
-    // size canvas to container
-    const rect = container.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    const ctx = canvas.getContext("2d");
-    let particles = [];
-    let start = performance.now();
-    runningRef.current = true;
-
-    // create a burst of N particles
-    function burst(x, y) {
-      const colors = [
-        "#ffef7a",
-        "#ffd166",
-        "#fb5607",
-        "#ff8c00",
-        "#80ffdb",
-        "#72ddf7",
-        "#f15bb5",
-      ];
-      const N = 40 + Math.floor(Math.random() * 30);
-      for (let i = 0; i < N; i++) {
-        const ang = (Math.PI * 2 * i) / N + Math.random() * 0.35;
-        const speed = 1.5 + Math.random() * 2.5;
-        particles.push({
-          x,
-          y,
-          vx: Math.cos(ang) * speed,
-          vy: Math.sin(ang) * speed - (Math.random() * 0.6 + 0.2),
-          life: 900 + Math.random() * 600, // ms
-          born: performance.now(),
-          color: colors[Math.floor(Math.random() * colors.length)],
-          size: 2 + Math.random() * 2.5,
-        });
-      }
-    }
-
-    // sprinkle bursts over time
-    let nextBurstAt = 0;
-    const duration = 3800; // ms total
-    const gravity = 0.025;
-
-    const loop = (t) => {
-      const elapsed = t - start;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (elapsed >= nextBurstAt && elapsed < duration - 250) {
-        const rx = 40 + Math.random() * (canvas.width - 80);
-        const ry = 60 + Math.random() * (canvas.height * 0.6);
-        burst(rx, ry);
-        nextBurstAt += 220 + Math.random() * 220;
-      }
-
-      // update & draw
-      const now = performance.now();
-      particles = particles.filter((p) => now - p.born < p.life);
-      for (const p of particles) {
-        const age = now - p.born;
-        p.vy += gravity;
-        p.x += p.vx;
-        p.y += p.vy;
-
-        // fade out
-        const alpha = Math.max(0, 1 - age / p.life);
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-
-      if (elapsed < duration || particles.length) {
-        rafRef.current = requestAnimationFrame(loop);
-      } else {
-        cancelAnimationFrame(rafRef.current);
-        runningRef.current = false;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    };
-
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(loop);
-
-    // cleanup on unmount
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      runningRef.current = false;
-    };
-  }
-
-  // keep canvas in sync with container size
-  useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
-
-    const ro = new ResizeObserver(() => {
-      const rect = container.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-    });
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, []);
-
-  // ---- render ----
+  // ---- render branches ----
   if (loading) {
     return ScreenWrap(
       <div style={styles.container}>
@@ -317,18 +181,7 @@ export default function Results() {
   }
 
   return ScreenWrap(
-    <div style={{ ...styles.container, position: "relative" }} ref={containerRef}>
-      {/* fireworks canvas overlay */}
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          mixBlendMode: "screen",
-        }}
-      />
-
+    <div style={styles.container}>
       {/* Banners */}
       {state?.tooSlow && (
         <Banner text="Too slow — voting’s over, but here are the results." />
@@ -351,22 +204,56 @@ export default function Results() {
 
       {/* Results list */}
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-        {totals.map((row) => (
-          <div
-            key={row.option}
-            style={{
-              ...styles.resultRow,
-              ...(row.rank === 1 ? styles.firstPlace : {}),
-            }}
-          >
-            <div style={styles.rankCell}>
-              <span style={styles.rankNum}>{row.rank}</span>
-              {row.tie && <span style={styles.tieBadge}>TIE</span>}
+        {totals.map((row) => {
+          const isWinner = row.rank === 1;
+          return (
+            <div
+              key={row.option}
+              style={{
+                ...styles.resultRow,
+                ...(isWinner ? styles.firstPlace : {}),
+              }}
+            >
+              <div style={styles.rankCell}>
+                <span
+                  style={{
+                    ...styles.rankNum,
+                    ...(isWinner ? styles.rankNumWinner : {}),
+                  }}
+                >
+                  {row.rank}
+                </span>
+
+                {/* crown next to the winning entry */}
+                {isWinner && (
+                  <div style={styles.crownWrap} aria-label="Leader">
+                    <CrownIcon />
+                  </div>
+                )}
+
+                {row.tie && <span style={styles.tieBadge}>TIE</span>}
+              </div>
+
+              <div
+                style={{
+                  ...styles.optionCell,
+                  ...(isWinner ? styles.optionCellWinner : {}),
+                }}
+              >
+                {row.option}
+              </div>
+
+              <div
+                style={{
+                  ...styles.pointsCell,
+                  ...(isWinner ? styles.pointsCellWinner : {}),
+                }}
+              >
+                {row.points} pts
+              </div>
             </div>
-            <div style={styles.optionCell}>{row.option}</div>
-            <div style={styles.pointsCell}>{row.points} pts</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div style={styles.actionsRow}>
@@ -384,6 +271,35 @@ export default function Results() {
   );
 }
 
+/* ---------- inline crown SVG (always visible; no emoji/font issues) ---------- */
+function CrownIcon() {
+  return (
+    <svg
+      viewBox="0 0 64 40"
+      width="28"
+      height="18"
+      style={styles.crownSvg}
+      role="img"
+      aria-hidden="true"
+    >
+      {/* base */}
+      <rect x="6" y="26" width="52" height="8" rx="4" fill="#ffb84d" />
+      {/* spikes */}
+      <path
+        d="M8 26 L18 10 L32 24 L46 8 L58 26 Z"
+        fill="#ffce6a"
+        stroke="#ff8c00"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      {/* jewels */}
+      <circle cx="18" cy="10" r="3" fill="#ff8c00" />
+      <circle cx="46" cy="8" r="3" fill="#ff8c00" />
+      <circle cx="32" cy="24" r="3" fill="#ff8c00" />
+    </svg>
+  );
+}
+
 /* ---------- helpers / styles ---------- */
 function Banner({ text }) {
   return <div style={styles.banner}>{text}</div>;
@@ -391,6 +307,14 @@ function Banner({ text }) {
 function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
 }
+
+const spinKeyframes = `
+@keyframes crown-spin {
+  0%   { transform: rotateZ(0deg)   scale(1);   }
+  50%  { transform: rotateZ(180deg) scale(1.06); }
+  100% { transform: rotateZ(360deg) scale(1);   }
+}
+`;
 
 const styles = {
   // mobile-safe outer wrap
@@ -404,7 +328,6 @@ const styles = {
     overflowX: "hidden",
   },
 
-  // container (card)
   container: {
     width: "100%",
     maxWidth: 720,
@@ -416,7 +339,6 @@ const styles = {
     margin: "0 auto",
   },
 
-  // header
   headerRow: {
     display: "flex",
     alignItems: "center",
@@ -431,7 +353,6 @@ const styles = {
   },
   timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
 
-  // sub badges
   subRow: {
     marginTop: 8,
     display: "flex",
@@ -459,8 +380,17 @@ const styles = {
     background: "rgba(255,255,255,0.03)",
     border: "1px solid #222",
     minWidth: 0,
+    transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
   },
-  firstPlace: { borderColor: ORANGE, boxShadow: "0 0 14px rgba(255,140,0,.45)" },
+
+  // winner styling (bigger, glow, subtle scale)
+  firstPlace: {
+    borderColor: ORANGE,
+    boxShadow: "0 0 18px rgba(255,140,0,.5)",
+    transform: "scale(1.02)",
+    padding: 14,
+  },
+
   rankCell: { display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" },
   rankNum: {
     width: 36,
@@ -471,7 +401,27 @@ const styles = {
     border: `1px solid ${ORANGE}`,
     color: ORANGE,
     fontWeight: 800,
+    background: "transparent",
   },
+  rankNumWinner: {
+    background: "rgba(255,140,0,.08)",
+    boxShadow: "0 0 10px rgba(255,140,0,.45) inset",
+  },
+
+  crownWrap: {
+    position: "relative",
+    width: 28,
+    height: 18,
+    marginLeft: 2,
+  },
+
+  // animated crown
+  crownSvg: {
+    display: "block",
+    filter: "drop-shadow(0 0 6px rgba(255,140,0,.85))",
+    animation: "crown-spin 2.4s linear infinite",
+  },
+
   tieBadge: {
     marginLeft: 6,
     padding: "2px 8px",
@@ -480,15 +430,18 @@ const styles = {
     color: ORANGE,
     fontSize: 12,
   },
+
   optionCell: { fontWeight: 700, minWidth: 0, flex: "1 1 200px" },
+  optionCellWinner: { fontSize: "1.06rem", letterSpacing: 0.2 },
+
   pointsCell: {
     marginLeft: "auto",
     textAlign: "right",
     fontVariantNumeric: "tabular-nums",
     flex: "0 0 auto",
   },
+  pointsCellWinner: { fontWeight: 800, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.45)" },
 
-  // actions
   actionsRow: {
     marginTop: 16,
     display: "flex",
@@ -512,7 +465,6 @@ const styles = {
     cursor: "pointer",
   },
 
-  // misc
   text: { opacity: 0.9 },
   banner: {
     marginBottom: 12,
@@ -523,3 +475,8 @@ const styles = {
     color: "#ffd9b3",
   },
 };
+
+// Inject the keyframes (keeps this file self-contained)
+const styleEl = document.createElement("style");
+styleEl.textContent = spinKeyframes;
+document.head.appendChild(styleEl);
