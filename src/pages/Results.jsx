@@ -45,9 +45,7 @@ export default function Results() {
         setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [code]);
 
   // tick clock every 15s
@@ -78,10 +76,7 @@ export default function Results() {
 
     read();
     const t = setInterval(read, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
+    return () => { cancelled = true; clearInterval(t); };
   }, [poll?.id]);
 
   // status
@@ -101,7 +96,6 @@ export default function Results() {
   }, [poll?.point_scheme]);
 
   const totals = useMemo(() => {
-    // ensure every option is present even if 0 points
     const opts = Array.isArray(poll?.options) ? poll.options : [];
     const map = new Map(opts.map((o) => [o, 0]));
     for (const r of rows) {
@@ -109,14 +103,9 @@ export default function Results() {
         map.set(r.option, (map.get(r.option) || 0) + (Number(r.points) || 0));
       }
     }
-    const arr = Array.from(map.entries()).map(([option, points]) => ({
-      option,
-      points,
-    }));
-    arr.sort(
-      (a, b) => b.points - a.points || a.option.localeCompare(b.option)
-    );
-    // assign ranks with ties sharing the same rank number
+    const arr = Array.from(map.entries()).map(([option, points]) => ({ option, points }));
+    arr.sort((a, b) => (b.points - a.points) || a.option.localeCompare(b.option));
+    // ranks with ties
     let rank = 1;
     for (let i = 0; i < arr.length; i++) {
       if (i > 0 && arr[i].points === arr[i - 1].points) {
@@ -131,110 +120,107 @@ export default function Results() {
     return arr;
   }, [rows, poll?.options]);
 
-  // derive ballot count safely: each ballot contributes sum(weights) total points
+  // ballots count from points / ballot-sum
   const ballotsCount = useMemo(() => {
-    const S = weights.reduce((a, b) => a + b, 0); // total points per ballot
+    const S = weights.reduce((a, b) => a + b, 0);
     if (!S) return 0;
     const totalPoints = totals.reduce((a, r) => a + r.points, 0);
     return Math.round(totalPoints / S);
   }, [weights, totals]);
 
-  const timeLeft = Math.max(
-    0,
-    (poll ? new Date(poll.closes_at).getTime() : 0) - now
-  );
+  const timeLeft = Math.max(0, (poll ? new Date(poll.closes_at).getTime() : 0) - now);
 
   // ---- render branches (no hooks below this point) ----
   if (loading) {
     return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>Loading…</p>
-      </div>
+      <>
+        <StyleTag />
+        <div style={styles.container}>
+          <h1 style={styles.title}>Room {code}</h1>
+          <p style={styles.text}>Loading…</p>
+        </div>
+      </>
     );
   }
   if (!poll) {
     return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>
-          We couldn’t find this poll. Double-check the code.
-        </p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
-      </div>
+      <>
+        <StyleTag />
+        <div style={styles.container}>
+          <h1 style={styles.title}>Room {code}</h1>
+          <p style={styles.text}>We couldn’t find this poll. Double-check the code.</p>
+          <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
+        </div>
+      </>
     );
   }
   if (status === "expired") {
     return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <p style={{ ...styles.text, marginTop: 8 }}>
-          This page has gone the way of your New Year’s resolutions.
-        </p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
-      </div>
+      <>
+        <StyleTag />
+        <div style={styles.container}>
+          <h1 style={styles.title}>{poll.title}</h1>
+          <p style={{ ...styles.text, marginTop: 8 }}>
+            This page has gone the way of your New Year’s resolutions.
+          </p>
+          <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
+        </div>
+      </>
     );
   }
 
   return ScreenWrap(
-    <div style={styles.container}>
-      {/* Banners */}
-      {state?.tooSlow && (
-        <Banner text="Too slow — voting’s over, but here are the results." />
-      )}
-      {state?.thanks && (
-        <Banner text="Thanks for voting! You’re viewing live results." />
-      )}
+    <>
+      {/* animations (scoped) */}
+      <StyleTag />
 
-      {/* Header */}
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <div style={styles.timer}>
-          {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
+      <div style={styles.container}>
+        {/* Banners */}
+        {state?.tooSlow && <Banner text="Too slow — voting’s over, but here are the results." />}
+        {state?.thanks && <Banner text="Thanks for voting! You’re viewing live results." />}
+
+        {/* Header */}
+        <div style={styles.headerRow}>
+          <h1 style={styles.title}>{poll.title}</h1>
+          <div style={styles.timer}>
+            {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
+          </div>
+        </div>
+        <div style={styles.subRow}>
+          <span style={styles.badge}>Code: {code}</span>
+          <span style={styles.badge}>Ballots: {ballotsCount}</span>
+        </div>
+
+        {/* Results list */}
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {totals.map((row) => (
+            <div
+              key={row.option}
+              style={{
+                ...styles.resultRow,
+                ...(row.rank === 1 ? styles.firstPlace : {}),
+              }}
+              className={row.rank === 1 ? "pulseGlow" : undefined}
+            >
+              <div style={styles.rankCell}>
+                <span style={styles.rankNum}>{row.rank}</span>
+                {row.rank === 1 && (
+                  <span style={styles.crown} className="spin">👑</span>
+                )}
+                {row.tie && <span style={styles.tieBadge}>TIE</span>}
+              </div>
+              <div style={styles.optionCell}>{row.option}</div>
+              <div style={styles.pointsCell}>{row.points} pts</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={styles.actionsRow}>
+          <button style={styles.secondaryBtn} onClick={() => nav(`/room/${code}`)}>Back to Room</button>
+          <button style={styles.linkBtn} onClick={() => nav("/")}>Home</button>
         </div>
       </div>
-      <div style={styles.subRow}>
-        <span style={styles.badge}>Code: {code}</span>
-        <span style={styles.badge}>Ballots: {ballotsCount}</span>
-      </div>
-
-      {/* Results list */}
-      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-        {totals.map((row) => (
-          <div
-            key={row.option}
-            style={{
-              ...styles.resultRow,
-              ...(row.rank === 1 ? styles.firstPlace : {}),
-            }}
-          >
-            <div style={styles.rankCell}>
-              <span style={styles.rankNum}>{row.rank}</span>
-              {row.rank === 1 && <span style={styles.crown}>👑</span>}
-              {row.tie && <span style={styles.tieBadge}>TIE</span>}
-            </div>
-            <div style={styles.optionCell}>{row.option}</div>
-            <div style={styles.pointsCell}>{row.points} pts</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={styles.actionsRow}>
-        <button
-          style={styles.secondaryBtn}
-          onClick={() => nav(`/room/${code}`)}
-        >
-          Back to Room
-        </button>
-        <button style={styles.linkBtn} onClick={() => nav("/")}>
-          Home
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -246,8 +232,34 @@ function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
 }
 
+/** Scoped animations */
+function StyleTag() {
+  return (
+    <style>{`
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+      }
+      .spin {
+        display: inline-block;
+        animation: spin 1.2s linear infinite;
+        filter: drop-shadow(0 0 6px rgba(255,140,0,.9));
+      }
+
+      @keyframes pulseGlow {
+        0%   { box-shadow: 0 0 10px rgba(255,140,0,.35); }
+        50%  { box-shadow: 0 0 22px rgba(255,140,0,.75); }
+        100% { box-shadow: 0 0 10px rgba(255,140,0,.35); }
+      }
+      .pulseGlow {
+        animation: pulseGlow 1.6s ease-in-out infinite;
+      }
+    `}</style>
+  );
+}
+
 const styles = {
-  // mobile-safe outer wrap (same pattern we used on Create)
+  // mobile-safe outer wrap
   wrap: {
     minHeight: "100vh",
     display: "grid",
@@ -301,19 +313,19 @@ const styles = {
     fontSize: 12,
   },
 
-  // rows (switched to flex with wrap to behave well on narrow screens)
+  // results rows
   resultRow: {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    flexWrap: "wrap",              // allows nice stacking on phones
+    flexWrap: "wrap",
     padding: 12,
     borderRadius: 12,
     background: "rgba(255,255,255,0.03)",
     border: "1px solid #222",
     minWidth: 0,
   },
-  firstPlace: { borderColor: ORANGE, boxShadow: "0 0 14px rgba(255,140,0,.45)" },
+  firstPlace: { borderColor: ORANGE }, // pulse handled by class
   rankCell: { display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" },
   rankNum: {
     width: 36,
@@ -325,7 +337,7 @@ const styles = {
     color: ORANGE,
     fontWeight: 800,
   },
-  crown: { marginLeft: 2, filter: "drop-shadow(0 0 6px rgba(255,140,0,.8))" },
+  crown: { marginLeft: 2 },
   tieBadge: {
     marginLeft: 6,
     padding: "2px 8px",
@@ -336,7 +348,7 @@ const styles = {
   },
   optionCell: { fontWeight: 700, minWidth: 0, flex: "1 1 200px" },
   pointsCell: {
-    marginLeft: "auto",           // stays right on wide, drops below neatly on narrow
+    marginLeft: "auto",
     textAlign: "right",
     fontVariantNumeric: "tabular-nums",
     flex: "0 0 auto",
