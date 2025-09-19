@@ -26,23 +26,70 @@ export default function Results() {
   const [now, setNow] = useState(Date.now());
   const [rows, setRows] = useState([]); // poll_results rows: { poll_id, option, points }
 
-  // inject 3D spin keyframes (once)
+  // inject 3D spin keyframes + crown styles (once)
   useEffect(() => {
-    const spinCSS = `
-      @keyframes crown-spin3d {
-        0%   { transform: perspective(700px) rotateY(0deg); }
-        50%  { transform: perspective(700px) rotateY(180deg); }
-        100% { transform: perspective(700px) rotateY(360deg); }
+    const css = `
+      /* 3D crown spinner */
+      .crown3d {
+        width: 28px;
+        height: 28px;
+        position: relative;
+        perspective: 700px;
+        display: inline-block;
+        margin-left: 4px;
+        filter: drop-shadow(0 0 6px rgba(255,140,0,.9));
+        vertical-align: middle;
       }
+      .crown3d .scene {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        transform-style: preserve-3d;
+        animation: crown-rotateY 1.15s linear infinite;
+      }
+      .crown3d .face {
+        position: absolute;
+        inset: 0;
+        backface-visibility: hidden;
+        transform-style: preserve-3d;
+      }
+      .crown3d .front {
+        transform: translateZ(0.01px) rotateY(0deg);
+        filter: brightness(1) saturate(1.05);
+      }
+      .crown3d .back {
+        transform: rotateY(180deg) translateZ(0.01px);
+        filter: brightness(0.78) saturate(0.95);
+      }
+
+      /* subtle “thickness” illusion with a rim */
+      .crown3d .rim {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 6px;
+        box-shadow:
+          0 0 0 1px rgba(255,140,0,0.55) inset,
+          0 0 12px rgba(255,140,0,0.35) inset;
+        pointer-events: none;
+        transform: translateZ(-0.5px);
+      }
+
+      @keyframes crown-rotateY {
+        0%   { transform: rotateY(0deg)   rotateZ(0deg); }
+        50%  { transform: rotateY(180deg) rotateZ(0.6deg); } /* tiny tilt adds depth */
+        100% { transform: rotateY(360deg) rotateZ(0deg); }
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .reduce-motion { animation: none !important; }
+        .crown3d .scene { animation: none !important; }
       }
     `;
-    let tag = document.getElementById("crown-spin3d-keyframes");
+    let tag = document.getElementById("crown-3d-css");
     if (!tag) {
       tag = document.createElement("style");
-      tag.id = "crown-spin3d-keyframes";
-      tag.textContent = spinCSS;
+      tag.id = "crown-3d-css";
+      tag.textContent = css;
       document.head.appendChild(tag);
     }
   }, []);
@@ -236,20 +283,7 @@ export default function Results() {
           >
             <div style={styles.rankCell}>
               <span style={styles.rankNum}>{row.rank}</span>
-              {row.rank === 1 && (
-                <span
-                  style={{
-                    ...styles.crown,
-                    animation: "crown-spin3d 1.1s linear infinite",
-                    transformOrigin: "50% 50%",
-                    display: "inline-block",
-                  }}
-                  className="reduce-motion"
-                  aria-hidden
-                >
-                  👑
-                </span>
-              )}
+              {row.rank === 1 && <Crown3D />}
               {row.tie && <span style={styles.tieBadge}>TIE</span>}
             </div>
             <div style={styles.optionCell}>{row.option}</div>
@@ -279,6 +313,78 @@ function Banner({ text }) {
 }
 function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
+}
+
+/** A small inline-SVG crown with front/back faces for a 3D spin illusion */
+function Crown3D() {
+  return (
+    <span className="crown3d" aria-hidden>
+      <span className="scene">
+        {/* FRONT FACE */}
+        <span className="face front">
+          <CrownSVG />
+        </span>
+
+        {/* BACK FACE (slightly darker) */}
+        <span className="face back">
+          <CrownSVG />
+        </span>
+
+        {/* Rim overlay for “thickness” */}
+        <span className="rim" />
+      </span>
+    </span>
+  );
+}
+
+/** SVG crown icon (pure inline, no external asset) */
+function CrownSVG() {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      width="100%"
+      height="100%"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: "block" }}
+    >
+      <defs>
+        <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFD678" />
+          <stop offset="50%" stopColor="#FFB347" />
+          <stop offset="100%" stopColor="#FF8C00" />
+        </linearGradient>
+        <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.8)" />
+          <stop offset="50%" stopColor="rgba(255,255,255,0.15)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </linearGradient>
+      </defs>
+
+      {/* base shape */}
+      <path
+        d="M8 46 L16 18 L32 34 L48 18 L56 46 Z"
+        fill="url(#gold)"
+        stroke="#DB7600"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      {/* bottom bar */}
+      <rect x="10" y="44" width="44" height="8" rx="4" fill="#FF9A2E" stroke="#DB7600" strokeWidth="2" />
+      {/* orbs */}
+      <circle cx="16" cy="18" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
+      <circle cx="48" cy="18" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
+      <circle cx="32" cy="34" r="3.5" fill="#FFE9B8" stroke="#DB7600" strokeWidth="1" />
+
+      {/* gentle shine */}
+      <path
+        d="M12 28 C20 22, 44 22, 52 28"
+        stroke="url(#shine)"
+        strokeWidth="3"
+        fill="none"
+        opacity="0.9"
+      />
+    </svg>
+  );
 }
 
 const styles = {
@@ -361,7 +467,6 @@ const styles = {
     color: ORANGE,
     fontWeight: 800,
   },
-  crown: { marginLeft: 2, filter: "drop-shadow(0 0 6px rgba(255,140,0,.8))" },
   tieBadge: {
     marginLeft: 6,
     padding: "2px 8px",
