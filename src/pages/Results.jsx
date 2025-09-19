@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -24,6 +24,23 @@ export default function Results() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [rows, setRows] = useState([]); // poll_results rows: { poll_id, option, points }
+
+  // sound
+  const [soundOn, setSoundOn] = useState(true);
+  const audioRef = useRef(null);
+  const lastLeaderRef = useRef(null);
+  const playedOnceRef = useRef(false);
+
+  // prepare audio
+  useEffect(() => {
+    const src = `${import.meta.env.BASE_URL}win.wav`; // place win.wav in /public
+    const a = new Audio(src);
+    a.volume = 0.6;
+    audioRef.current = a;
+    return () => {
+      try { a.pause(); a.src = ""; } catch {}
+    };
+  }, []);
 
   // fetch poll by code
   useEffect(() => {
@@ -130,6 +147,29 @@ export default function Results() {
 
   const timeLeft = Math.max(0, (poll ? new Date(poll.closes_at).getTime() : 0) - now);
 
+  // --- play win sound on first show & whenever leader changes ---
+  useEffect(() => {
+    if (!totals.length) return;
+    const leaderKey = `${totals[0].option}|${totals[0].points}`;
+
+    // play once when results first appear
+    if (!playedOnceRef.current) {
+      playedOnceRef.current = true;
+      if (soundOn && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {/* autoplay might be blocked */});
+      }
+    } else if (lastLeaderRef.current && lastLeaderRef.current !== leaderKey) {
+      // leader changed -> play again
+      if (soundOn && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      }
+    }
+
+    lastLeaderRef.current = leaderKey;
+  }, [totals, soundOn]);
+
   // ---- render branches (no hooks below this point) ----
   if (loading) {
     return ScreenWrap(
@@ -171,21 +211,29 @@ export default function Results() {
 
   return ScreenWrap(
     <>
-      {/* animations (scoped) */}
       <StyleTag />
-
       <div style={styles.container}>
-        {/* Banners */}
         {state?.tooSlow && <Banner text="Too slow — voting’s over, but here are the results." />}
         {state?.thanks && <Banner text="Thanks for voting! You’re viewing live results." />}
 
         {/* Header */}
         <div style={styles.headerRow}>
           <h1 style={styles.title}>{poll.title}</h1>
-          <div style={styles.timer}>
-            {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              style={styles.soundBtn}
+              onClick={() => setSoundOn((v) => !v)}
+              title={soundOn ? "Mute sound" : "Unmute sound"}
+            >
+              {soundOn ? "🔊" : "🔈"}
+            </button>
+            <div style={styles.timer}>
+              {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
+            </div>
           </div>
         </div>
+
         <div style={styles.subRow}>
           <span style={styles.badge}>Code: {code}</span>
           <span style={styles.badge}>Ballots: {ballotsCount}</span>
@@ -204,9 +252,7 @@ export default function Results() {
             >
               <div style={styles.rankCell}>
                 <span style={styles.rankNum}>{row.rank}</span>
-                {row.rank === 1 && (
-                  <span style={styles.crown} className="spin">👑</span>
-                )}
+                {row.rank === 1 && <span style={styles.crown} className="spin">👑</span>}
                 {row.tie && <span style={styles.tieBadge}>TIE</span>}
               </div>
               <div style={styles.optionCell}>{row.option}</div>
@@ -281,7 +327,6 @@ const styles = {
     margin: "0 auto",
   },
 
-  // header
   headerRow: {
     display: "flex",
     alignItems: "center",
@@ -296,7 +341,6 @@ const styles = {
   },
   timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
 
-  // sub badges
   subRow: {
     marginTop: 8,
     display: "flex",
@@ -313,7 +357,6 @@ const styles = {
     fontSize: 12,
   },
 
-  // results rows
   resultRow: {
     display: "flex",
     alignItems: "center",
@@ -354,7 +397,6 @@ const styles = {
     flex: "0 0 auto",
   },
 
-  // actions
   actionsRow: {
     marginTop: 16,
     display: "flex",
@@ -378,7 +420,15 @@ const styles = {
     cursor: "pointer",
   },
 
-  // misc
+  soundBtn: {
+    border: "1px solid #333",
+    background: "transparent",
+    color: "#ffd9b3",
+    borderRadius: 10,
+    padding: "6px 10px",
+    cursor: "pointer",
+  },
+
   text: { opacity: 0.9 },
   banner: {
     marginBottom: 12,
