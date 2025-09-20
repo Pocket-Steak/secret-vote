@@ -1,16 +1,16 @@
 // src/pages/CreateCollect.jsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
-// 6-char room code helper (A–Z0–9)
-function makeCode(n = 6) {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusables
-  let out = "";
-  for (let i = 0; i < n; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return out;
+// 6-char code generator (avoids confusing chars)
+function genCode() {
+  const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
+  return s;
 }
 
 export default function CreateCollect() {
@@ -18,77 +18,85 @@ export default function CreateCollect() {
 
   // form state
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState(120); // minutes
+  const [durationMin, setDurationMin] = useState(120); // default 2h
   const [maxPerUser, setMaxPerUser] = useState(3);
-  const [target, setTarget] = useState(""); // optional number
-  const [hostPin, setHostPin] = useState(""); // NEW
-  const [busy, setBusy] = useState(false);
-  const [debug, setDebug] = useState("");
+  const [targetHint, setTargetHint] = useState("");
+  const [hostPin, setHostPin] = useState(""); // optional
+  const [submitting, setSubmitting] = useState(false);
+
+  const durations = useMemo(
+    () => [
+      { label: "30 minutes", minutes: 30 },
+      { label: "1 hour", minutes: 60 },
+      { label: "2 hours", minutes: 120 },
+      { label: "4 hours", minutes: 240 },
+      { label: "8 hours", minutes: 480 },
+    ],
+    []
+  );
+
+  const maxChoices = useMemo(() => [1, 2, 3, 4, 5, 6], []);
 
   async function handleCreate() {
-    if (!title.trim()) {
+    const t = title.trim();
+    if (!t) {
       alert("Please enter a poll title.");
       return;
     }
-    setBusy(true);
-    setDebug("");
 
-    const code = makeCode();
+    // PIN optional, but if present must be 4+ digits
+    const pin = hostPin.trim();
+    if (pin && (!/^\d{4,}$/.test(pin))) {
+      alert("PIN must be at least 4 digits (numbers only).");
+      return;
+    }
 
-    // payload for collect_polls
-    const payload = {
-      code,
-      title: title.trim(),
-      max_per_user: maxPerUser,
-      voting_duration_minutes: Number(duration),
-      created_at: new Date().toISOString(),
-      target_participants_hint: target ? Number(target) : null,
-      // status defaults server-side to 'collecting' if you added that default,
-      // otherwise it will just be null and can be set later by RPCs.
-    };
+    // Target participants is optional number
+    let target = null;
+    if (targetHint.trim()) {
+      const n = Number(targetHint);
+      if (!Number.isFinite(n) || n < 1 || n > 1000000) {
+        alert("Target participants should be a positive number.");
+        return;
+      }
+      target = Math.floor(n);
+    }
 
+    setSubmitting(true);
     try {
-      // 1) create collection room
-      const { data: row, error } = await supabase
+      const code = genCode();
+      const payload = {
+        code,
+        title: t,
+        voting_duration_minutes: Number(durationMin),
+        max_per_user: Number(maxPerUser),
+        target_participants_hint: target, // nullable
+        host_pin: pin || null,            // nullable
+        created_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
         .from("collect_polls")
-        .insert(payload)
-        .select("*")
-        .single();
+        .insert(payload);
 
       if (error) {
         console.error(error);
-        alert(`Could not create room.\n\n${error.message}`);
-        setBusy(false);
+        alert(`Could not create room.\n\n${error.message || ""}`);
+        setSubmitting(false);
         return;
       }
 
-      // 2) if host provided a PIN, set it via RPC
-      if (hostPin.trim()) {
-        const { error: pinErr } = await supabase.rpc("collect_set_pin", {
-          _code: code,
-          _pin: hostPin.trim(),
-        });
-        if (pinErr) {
-          console.error(pinErr);
-          alert(`Room was created, but could not set the host PIN.\n\n${pinErr.message}`);
-          // continue anyway — host page will still work without PIN
-        }
-      }
-
-      // 3) go to the collection room for participants to add options
       nav(`/collect/${code}`);
-    } catch (e) {
-      console.error(e);
-      alert("Could not create room.");
-    } finally {
-      setDebug(JSON.stringify(payload));
-      setBusy(false);
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error creating the room.");
+      setSubmitting(false);
     }
   }
 
   return (
     <div style={s.wrap}>
-      <div style={s.card}>
+      <div style={s.container}>
         <h1 style={s.title}>Collect Options First</h1>
 
         {/* Poll Title */}
@@ -98,74 +106,77 @@ export default function CreateCollect() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="What should we do?"
           style={s.input}
+          maxLength={60}
         />
 
-        {/* Voting duration */}
+        {/* Voting Duration */}
         <label style={s.label}>Voting Duration (after collection)</label>
-        <select value={duration} onChange={(e) => setDuration(e.target.value)} style={s.select}>
-          <option value={30}>30 minutes</option>
-          <option value={60}>1 hour</option>
-          <option value={120}>2 hours</option>
-          <option value={180}>3 hours</option>
-          <option value={240}>4 hours</option>
-          <option value={480}>8 hours</option>
-        </select>
+        <div style={s.selectWrap}>
+          <select
+            value={durationMin}
+            onChange={(e) => setDurationMin(Number(e.target.value))}
+            style={s.select}
+          >
+            {durations.map((d) => (
+              <option key={d.minutes} value={d.minutes}>{d.label}</option>
+            ))}
+          </select>
+          <span style={s.chev}>▾</span>
+        </div>
 
-        {/* Max options each participant can add */}
+        {/* Max options per participant */}
         <label style={s.label}>Max options each participant can add</label>
-        <select
-          value={maxPerUser}
-          onChange={(e) => setMaxPerUser(Number(e.target.value))}
-          style={s.select}
-        >
-          {[1, 2, 3, 4, 5].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+        <div style={s.selectWrap}>
+          <select
+            value={maxPerUser}
+            onChange={(e) => setMaxPerUser(Number(e.target.value))}
+            style={s.select}
+          >
+            {maxChoices.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <span style={s.chev}>▾</span>
+        </div>
 
-        {/* Target participants (optional) */}
+        {/* Target participants hint (optional) */}
         <label style={s.label}>Target participants (optional)</label>
         <input
-          type="number"
-          min={1}
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
+          value={targetHint}
+          onChange={(e) => setTargetHint(e.target.value)}
           placeholder="e.g., 6"
+          inputMode="numeric"
           style={s.input}
         />
 
-        {/* NEW: Host PIN (optional) */}
+        {/* Host PIN (optional) */}
         <label style={s.label}>Host PIN (optional)</label>
         <input
           value={hostPin}
           onChange={(e) => setHostPin(e.target.value)}
           placeholder="Set a PIN to open voting later"
+          inputMode="numeric"
           style={s.input}
+          maxLength={12}
         />
 
+        {/* Actions */}
         <div style={s.actions}>
-          <button style={s.primaryBtn} onClick={handleCreate} disabled={busy}>
-            {busy ? "Creating…" : "Create Collection Room"}
+          <button
+            style={{ ...s.primaryBtn, opacity: submitting ? 0.6 : 1 }}
+            disabled={submitting}
+            onClick={handleCreate}
+          >
+            {submitting ? "Creating…" : "Create Collection Room"}
           </button>
-          <button style={s.secondaryBtn} onClick={() => history.back()} disabled={busy}>
-            Cancel
-          </button>
+          <button style={s.secondaryBtn} onClick={() => nav("/")}>Cancel</button>
         </div>
-
-        {/* Debug box (optional) */}
-        {debug && (
-          <div style={s.debug}>
-            <div>Payload:</div>
-            <pre style={{ margin: 0 }}>{debug}</pre>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
+/* ---------- styles ---------- */
 const s = {
   wrap: {
     minHeight: "100vh",
@@ -174,9 +185,11 @@ const s = {
     background: "#0b0f17",
     color: "#e9e9f1",
     padding: "clamp(8px, 2vw, 16px)",
+    overflowX: "hidden",
   },
-  card: {
-    width: "min(900px, 94vw)",
+  container: {
+    width: "100%",
+    maxWidth: 900,
     padding: "clamp(16px, 3vw, 24px)",
     borderRadius: 16,
     background: "rgba(255,255,255,0.04)",
@@ -185,10 +198,16 @@ const s = {
   },
   title: {
     margin: 0,
+    marginBottom: 10,
     fontSize: "clamp(22px, 4.5vw, 28px)",
     textShadow: "0 0 12px rgba(255,140,0,.8)",
   },
-  label: { marginTop: 14, marginBottom: 6, fontWeight: 700, color: "#ffd9b3" },
+  label: {
+    display: "block",
+    marginTop: 14,
+    marginBottom: 6,
+    fontWeight: 700,
+  },
   input: {
     width: "100%",
     padding: "12px 14px",
@@ -199,9 +218,17 @@ const s = {
     outline: "none",
     boxSizing: "border-box",
   },
-  select: {
+  selectWrap: {
+    position: "relative",
+    display: "inline-block",
     width: "100%",
-    padding: "12px 14px",
+  },
+  select: {
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    width: "100%",
+    padding: "12px 40px 12px 14px",
     borderRadius: 12,
     border: "1px solid #333",
     background: "#121727",
@@ -209,7 +236,20 @@ const s = {
     outline: "none",
     boxSizing: "border-box",
   },
-  actions: { display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" },
+  chev: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)",
+    pointerEvents: "none",
+    opacity: 0.7,
+  },
+  actions: {
+    marginTop: 18,
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap",
+  },
   primaryBtn: {
     padding: "12px 18px",
     borderRadius: 12,
@@ -227,14 +267,5 @@ const s = {
     background: "transparent",
     color: ORANGE,
     cursor: "pointer",
-  },
-  debug: {
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#0e1423",
-    fontSize: 12,
-    color: "#aaa",
   },
 };
