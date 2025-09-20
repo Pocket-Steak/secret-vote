@@ -4,48 +4,59 @@ import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
-function generateCode() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let s = "";
-  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
-}
-
 export default function CreateCollect() {
   const nav = useNavigate();
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState("120"); // minutes: 30, 120, 1440
+  const [duration, setDuration] = useState("120"); // minutes after collection
+  const [limit, setLimit] = useState(3);           // NEW: max options per participant
   const [busy, setBusy] = useState(false);
+
+  function generateCode() {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let s = "";
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
 
   async function createRoom() {
     const t = title.trim();
-    if (!t) return alert("Please enter a question / poll title.");
-    if (t.length > 60) return alert("Title must be 60 characters or fewer.");
+    if (!t) return alert("Please enter a title.");
+    const limitInt = Number(limit);
+    if (!Number.isInteger(limitInt) || limitInt < 1 || limitInt > 10) {
+      return alert("Limit must be between 1 and 10.");
+    }
 
     setBusy(true);
     try {
-      // try a few times in case of code collision
+      // try a few times to avoid rare code collisions
       for (let attempt = 0; attempt < 5; attempt++) {
         const code = generateCode();
-        const { error } = await supabase.from("collect_polls").insert({
-          code,
-          title: t,
-          vote_duration_minutes: parseInt(duration, 10),
-          created_at: new Date().toISOString(),
-        });
+        const now = new Date();
 
-        if (!error) {
-          nav(`/collect/${code}`);
+        const { data, error } = await supabase
+          .from("collect_polls")
+          .insert({
+            code,
+            title: t,
+            created_at: now.toISOString(),
+            // we'll keep collecting until the host finalizes;
+            // duration_minutes applies AFTER collection (for the voting poll)
+            duration_minutes: parseInt(duration, 10),
+            max_options_per_user: limitInt, // NEW
+          })
+          .select("code")
+          .maybeSingle();
+
+        if (!error && data) {
+          nav(`/collect/${data.code}`);
           return;
         }
-        // 23505 = unique_violation (code collision). Otherwise, fail fast.
-        if (error.code !== "23505") {
-          console.error(error);
-          alert("Could not create room.");
-          return;
-        }
+        if (error?.code !== "23505") throw error; // not a unique-violation → bail
       }
       alert("Could not allocate a room code. Please try again.");
+    } catch (err) {
+      console.error(err);
+      alert("Could not create room.");
     } finally {
       setBusy(false);
     }
@@ -59,36 +70,48 @@ export default function CreateCollect() {
         <label style={s.label}>Poll Title</label>
         <input
           style={s.input}
-          maxLength={60}
-          placeholder="What should we do?"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          placeholder="What should we do?"
+          maxLength={60}
         />
 
-        <label style={{ ...s.label, marginTop: 14 }}>
+        <label style={{ ...s.label, marginTop: 12 }}>
           Voting Duration (after collection)
         </label>
         <select
+          style={s.select}
           value={duration}
           onChange={(e) => setDuration(e.target.value)}
-          style={s.select}
         >
           <option value="30">30 minutes</option>
           <option value="120">2 hours</option>
           <option value="1440">24 hours</option>
         </select>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+        {/* NEW: per-participant option limit */}
+        <label style={{ ...s.label, marginTop: 12 }}>
+          Max options each participant can add
+        </label>
+        <select
+          style={s.select}
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+        >
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
           <button
             style={{ ...s.primaryBtn, opacity: busy ? 0.6 : 1 }}
-            disabled={busy}
             onClick={createRoom}
+            disabled={busy}
           >
             Create Collection Room
           </button>
-          <button style={s.secondaryBtn} onClick={() => nav("/")}>
-            Cancel
-          </button>
+          <button style={s.secondaryBtn} onClick={() => nav("/")}>Cancel</button>
         </div>
       </div>
     </div>
@@ -113,12 +136,8 @@ const s = {
     boxShadow: "0 0 20px rgba(255,140,0,.35)",
     boxSizing: "border-box",
   },
-  title: {
-    margin: 0,
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-  },
-  label: { display: "block", marginTop: 8, marginBottom: 6, fontWeight: 700 },
+  title: { margin: 0, fontSize: "clamp(22px, 4.5vw, 28px)", textShadow: "0 0 12px rgba(255,140,0,.8)" },
+  label: { display: "block", fontWeight: 700, marginBottom: 6 },
   input: {
     width: "100%",
     padding: "12px 14px",
