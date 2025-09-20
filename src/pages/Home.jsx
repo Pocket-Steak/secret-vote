@@ -12,10 +12,16 @@ export default function Home() {
     nav("/create");
   }
 
+  // NEW: go to the "collect options first" flow
+  function goCreateCollect() {
+    nav("/create-collect");
+  }
+
   function goToRoom(e) {
     e.preventDefault();
     const c = code.trim().toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(c)) return alert("Enter a 6-character code (letters/numbers).");
+    if (!/^[A-Z0-9]{6}$/.test(c))
+      return alert("Enter a 6-character code (letters/numbers).");
     nav(`/room/${c}`);
   }
 
@@ -33,7 +39,12 @@ export default function Home() {
           Create Poll
         </button>
 
-        {/* New: label above the code entry */}
+        {/* NEW: outlined, full-width button for the collect flow */}
+        <button style={styles.outlineBtn} onClick={goCreateCollect}>
+          Collect Options First
+        </button>
+
+        {/* Label above the code entry */}
         <div style={styles.entryLabel}>Have a code? Enter it below to cast your vote:</div>
 
         <form onSubmit={goToRoom} style={styles.row}>
@@ -86,7 +97,6 @@ const styles = {
     gap: 10,
   },
 
-  // New: label styling
   entryLabel: {
     marginTop: 2,
     marginBottom: 2,
@@ -121,6 +131,19 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: "0 0 12px rgba(255,140,0,.75)",
+  },
+
+  // NEW: full-width outlined button to match the theme
+  outlineBtn: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
+    fontWeight: 700,
+    cursor: "pointer",
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   secondaryBtn: {
