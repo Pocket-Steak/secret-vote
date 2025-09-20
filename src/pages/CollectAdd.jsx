@@ -69,7 +69,7 @@ export default function CollectAdd() {
   async function submit() {
     if (!poll?.id) return;
 
-    // clean & dedupe
+    // clean & dedupe (case-insensitive)
     const cleaned = values.map((s) => (s || "").trim()).filter(Boolean);
     const seen = new Set();
     const unique = [];
@@ -84,12 +84,12 @@ export default function CollectAdd() {
 
     setSubmitting(true);
     try {
-      const author_token = getClientToken();
+      const clientToken = getClientToken();
 
-      // 🔒 Use RPC so author_token is set on the server
+      // ✅ Use server-side RPC that sets client_id
       const { error } = await supabase.rpc("collect_add_options", {
         _poll_id: poll.id,
-        _author_token: author_token,
+        _client_id: clientToken,
         _options: unique,
       });
       if (error) throw error;
@@ -235,20 +235,20 @@ const s = {
     cursor: "pointer",
     boxShadow: "0 0 14px rgba(255,140,0,.8)",
   },
-  secondaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
   linkBtn: {
     padding: "12px 16px",
     borderRadius: 12,
     border: "1px solid #333",
     background: "transparent",
     color: "#aaa",
+    cursor: "pointer",
+  },
+  secondaryBtn: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
     cursor: "pointer",
   },
 };
