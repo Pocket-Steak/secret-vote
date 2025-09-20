@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
-// minutes-only time
+/* --- small helper for minutes-only time --- */
 function fmtHM(ms) {
   if (ms <= 0) return "0h 0m";
   const mTotal = Math.floor(ms / 60000);
@@ -14,19 +14,74 @@ function fmtHM(ms) {
   return `${h}h ${m}m`;
 }
 
+/* --- a static “fancy” crown (SVG gradient + subtle glow) --- */
+function FancyCrown({ size = 22 }) {
+  const id = "crownGrad" + Math.random().toString(36).slice(2);
+  const glow = "crownGlow" + Math.random().toString(36).slice(2);
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      style={{ flex: "0 0 auto", filter: "drop-shadow(0 0 6px rgba(255,140,0,.55))" }}
+    >
+      <defs>
+        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffe7a1" />
+          <stop offset="55%" stopColor="#ffc04d" />
+          <stop offset="100%" stopColor="#ff9b00" />
+        </linearGradient>
+        <filter id={glow} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* band */}
+      <rect
+        x="12"
+        y="46"
+        width="40"
+        height="8"
+        rx="3"
+        fill="url(#" + id + ")"
+        stroke="#d06b00"
+        strokeWidth="2"
+        filter={`url(#${glow})`}
+      />
+      {/* main crown shape */}
+      <path
+        d="M8 44 L16 22 L28 34 L36 20 L48 34 L56 22 L60 44 Z"
+        fill={`url(#${id})`}
+        stroke="#d06b00"
+        strokeWidth="2.5"
+        filter={`url(#${glow})`}
+      />
+      {/* jewels */}
+      <circle cx="16" cy="22" r="3.2" fill="#fff6c8" stroke="#e0b300" strokeWidth="1" />
+      <circle cx="36" cy="20" r="3.2" fill="#fff6c8" stroke="#e0b300" strokeWidth="1" />
+      <circle cx="56" cy="22" r="3.2" fill="#fff6c8" stroke="#e0b300" strokeWidth="1" />
+    </svg>
+  );
+}
+
 export default function Results() {
   const nav = useNavigate();
   const { state } = useLocation();
   const { code: raw } = useParams();
   const code = (raw || "").toUpperCase();
 
-  // ---- state ----
+  // ---- state
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [rows, setRows] = useState([]); // poll_results rows: { poll_id, option, points }
 
-  // fetch poll by code
+  // fetch poll
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -95,7 +150,7 @@ export default function Results() {
     return "open";
   }, [poll, now]);
 
-  // compute totals, sort, ranks, ties
+  // weights / totals / ranks
   const weights = useMemo(() => {
     const scheme = Array.isArray(poll?.point_scheme) ? poll.point_scheme : [];
     return scheme.map((n) => Number(n) || 0);
@@ -113,10 +168,8 @@ export default function Results() {
       option,
       points,
     }));
-    arr.sort(
-      (a, b) => b.points - a.points || a.option.localeCompare(b.option)
-    );
-    // assign ranks with ties sharing the same rank number
+    arr.sort((a, b) => (b.points - a.points) || a.option.localeCompare(b.option));
+    // ranks with ties
     let rank = 1;
     for (let i = 0; i < arr.length; i++) {
       if (i > 0 && arr[i].points === arr[i - 1].points) {
@@ -131,23 +184,19 @@ export default function Results() {
     return arr;
   }, [rows, poll?.options]);
 
-  // derive ballot count safely: each ballot contributes sum(weights) total points
   const ballotsCount = useMemo(() => {
-    const S = weights.reduce((a, b) => a + b, 0); // total points per ballot
+    const S = weights.reduce((a, b) => a + b, 0);
     if (!S) return 0;
     const totalPoints = totals.reduce((a, r) => a + r.points, 0);
     return Math.round(totalPoints / S);
   }, [weights, totals]);
 
-  const timeLeft = Math.max(
-    0,
-    (poll ? new Date(poll.closes_at).getTime() : 0) - now
-  );
+  const timeLeft = Math.max(0, (poll ? new Date(poll.closes_at).getTime() : 0) - now);
 
-  // ---- render branches ----
+  // ---- renders ----
   if (loading) {
     return ScreenWrap(
-      <div style={styles.container}>
+      <div style={styles.card}>
         <h1 style={styles.title}>Room {code}</h1>
         <p style={styles.text}>Loading…</p>
       </div>
@@ -155,42 +204,30 @@ export default function Results() {
   }
   if (!poll) {
     return ScreenWrap(
-      <div style={styles.container}>
+      <div style={styles.card}>
         <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>
-          We couldn’t find this poll. Double-check the code.
-        </p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+        <p style={styles.text}>We couldn’t find this poll. Double-check the code.</p>
+        <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
       </div>
     );
   }
   if (status === "expired") {
     return ScreenWrap(
-      <div style={styles.container}>
+      <div style={styles.card}>
         <h1 style={styles.title}>{poll.title}</h1>
         <p style={{ ...styles.text, marginTop: 8 }}>
           This page has gone the way of your New Year’s resolutions.
         </p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+        <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
       </div>
     );
   }
 
   return ScreenWrap(
-    <div style={styles.container}>
-      {/* Banners */}
-      {state?.tooSlow && (
-        <Banner text="Too slow — voting’s over, but here are the results." />
-      )}
-      {state?.thanks && (
-        <Banner text="Thanks for voting! You’re viewing live results." />
-      )}
+    <div style={styles.card}>
+      {state?.tooSlow && <Banner text="Too slow — voting’s over, but here are the results." />}
+      {state?.thanks && <Banner text="Thanks for voting! You’re viewing live results." />}
 
-      {/* Header */}
       <div style={styles.headerRow}>
         <h1 style={styles.title}>{poll.title}</h1>
         <div style={styles.timer}>
@@ -202,7 +239,6 @@ export default function Results() {
         <span style={styles.badge}>Ballots: {ballotsCount}</span>
       </div>
 
-      {/* Results list */}
       <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
         {totals.map((row) => {
           const isWinner = row.rank === 1;
@@ -215,88 +251,26 @@ export default function Results() {
               }}
             >
               <div style={styles.rankCell}>
-                <span
-                  style={{
-                    ...styles.rankNum,
-                    ...(isWinner ? styles.rankNumWinner : {}),
-                  }}
-                >
-                  {row.rank}
-                </span>
-
-                {/* crown next to the winning entry */}
-                {isWinner && (
-                  <div style={styles.crownWrap} aria-label="Leader">
-                    <CrownIcon />
-                  </div>
+                <span style={styles.rankNum}>{row.rank}</span>
+                {isWinner && <FancyCrown size={22} />}
+                {row.tie && (
+                  <span style={styles.tieBadge}>TIE</span>
                 )}
-
-                {row.tie && <span style={styles.tieBadge}>TIE</span>}
               </div>
-
-              <div
-                style={{
-                  ...styles.optionCell,
-                  ...(isWinner ? styles.optionCellWinner : {}),
-                }}
-              >
+              <div style={{ ...styles.optionCell, ...(isWinner ? styles.optionWinner : {}) }}>
                 {row.option}
               </div>
-
-              <div
-                style={{
-                  ...styles.pointsCell,
-                  ...(isWinner ? styles.pointsCellWinner : {}),
-                }}
-              >
-                {row.points} pts
-              </div>
+              <div style={styles.pointsCell}>{row.points} pts</div>
             </div>
           );
         })}
       </div>
 
-      <div style={styles.actionsRow}>
-        <button
-          style={styles.secondaryBtn}
-          onClick={() => nav(`/room/${code}`)}
-        >
-          Back to Room
-        </button>
-        <button style={styles.linkBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+      <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button style={styles.secondaryBtn} onClick={() => nav(`/room/${code}`)}>Back to Room</button>
+        <button style={styles.linkBtn} onClick={() => nav("/")}>Home</button>
       </div>
     </div>
-  );
-}
-
-/* ---------- inline crown SVG (always visible; no emoji/font issues) ---------- */
-function CrownIcon() {
-  return (
-    <svg
-      viewBox="0 0 64 40"
-      width="28"
-      height="18"
-      style={styles.crownSvg}
-      role="img"
-      aria-hidden="true"
-    >
-      {/* base */}
-      <rect x="6" y="26" width="52" height="8" rx="4" fill="#ffb84d" />
-      {/* spikes */}
-      <path
-        d="M8 26 L18 10 L32 24 L46 8 L58 26 Z"
-        fill="#ffce6a"
-        stroke="#ff8c00"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      {/* jewels */}
-      <circle cx="18" cy="10" r="3" fill="#ff8c00" />
-      <circle cx="46" cy="8" r="3" fill="#ff8c00" />
-      <circle cx="32" cy="24" r="3" fill="#ff8c00" />
-    </svg>
   );
 }
 
@@ -307,14 +281,6 @@ function Banner({ text }) {
 function ScreenWrap(children) {
   return <div style={styles.wrap}>{children}</div>;
 }
-
-const spinKeyframes = `
-@keyframes crown-spin {
-  0%   { transform: rotateZ(0deg)   scale(1);   }
-  50%  { transform: rotateZ(180deg) scale(1.06); }
-  100% { transform: rotateZ(360deg) scale(1);   }
-}
-`;
 
 const styles = {
   // mobile-safe outer wrap
@@ -327,8 +293,8 @@ const styles = {
     padding: "clamp(8px, 2vw, 16px)",
     overflowX: "hidden",
   },
-
-  container: {
+  // card container
+  card: {
     width: "100%",
     maxWidth: 720,
     padding: "clamp(16px, 3vw, 24px)",
@@ -353,13 +319,7 @@ const styles = {
   },
   timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
 
-  subRow: {
-    marginTop: 8,
-    display: "flex",
-    gap: 10,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
+  subRow: { marginTop: 8, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
   badge: {
     padding: "6px 12px",
     borderRadius: 999,
@@ -369,7 +329,7 @@ const styles = {
     fontSize: 12,
   },
 
-  // result rows
+  // results rows
   resultRow: {
     display: "flex",
     alignItems: "center",
@@ -380,15 +340,15 @@ const styles = {
     background: "rgba(255,255,255,0.03)",
     border: "1px solid #222",
     minWidth: 0,
-    transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
   },
 
-  // winner styling (bigger, glow, subtle scale)
+  // winner highlight: soft gradient + stronger glow + thicker border
   firstPlace: {
     borderColor: ORANGE,
-    boxShadow: "0 0 18px rgba(255,140,0,.5)",
-    transform: "scale(1.02)",
-    padding: 14,
+    boxShadow:
+      "0 0 0 1px rgba(255,140,0,.35) inset, 0 0 18px rgba(255,140,0,.55), 0 0 40px rgba(255,140,0,.25)",
+    background:
+      "linear-gradient(180deg, rgba(255,140,0,.18), rgba(255,140,0,.06))",
   },
 
   rankCell: { display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" },
@@ -401,27 +361,8 @@ const styles = {
     border: `1px solid ${ORANGE}`,
     color: ORANGE,
     fontWeight: 800,
-    background: "transparent",
-  },
-  rankNumWinner: {
     background: "rgba(255,140,0,.08)",
-    boxShadow: "0 0 10px rgba(255,140,0,.45) inset",
   },
-
-  crownWrap: {
-    position: "relative",
-    width: 28,
-    height: 18,
-    marginLeft: 2,
-  },
-
-  // animated crown
-  crownSvg: {
-    display: "block",
-    filter: "drop-shadow(0 0 6px rgba(255,140,0,.85))",
-    animation: "crown-spin 2.4s linear infinite",
-  },
-
   tieBadge: {
     marginLeft: 6,
     padding: "2px 8px",
@@ -432,7 +373,9 @@ const styles = {
   },
 
   optionCell: { fontWeight: 700, minWidth: 0, flex: "1 1 200px" },
-  optionCellWinner: { fontSize: "1.06rem", letterSpacing: 0.2 },
+  optionWinner: {
+    textShadow: "0 0 10px rgba(255,140,0,.65)",
+  },
 
   pointsCell: {
     marginLeft: "auto",
@@ -440,14 +383,7 @@ const styles = {
     fontVariantNumeric: "tabular-nums",
     flex: "0 0 auto",
   },
-  pointsCellWinner: { fontWeight: 800, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.45)" },
 
-  actionsRow: {
-    marginTop: 16,
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-  },
   secondaryBtn: {
     padding: "12px 16px",
     borderRadius: 12,
@@ -466,6 +402,7 @@ const styles = {
   },
 
   text: { opacity: 0.9 },
+
   banner: {
     marginBottom: 12,
     padding: 10,
@@ -475,8 +412,3 @@ const styles = {
     color: "#ffd9b3",
   },
 };
-
-// Inject the keyframes (keeps this file self-contained)
-const styleEl = document.createElement("style");
-styleEl.textContent = spinKeyframes;
-document.head.appendChild(styleEl);
