@@ -9,9 +9,11 @@ export default function CreateCollect() {
   const nav = useNavigate();
 
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState("120"); // minutes for voting after finalize
-  const [maxPerUser, setMaxPerUser] = useState(3); // each participant may add N options
-  const [targetPeople, setTargetPeople] = useState(""); // optional hint only
+  const [duration, setDuration] = useState("120"); // minutes for voting after collection
+  const [maxPerUser, setMaxPerUser] = useState(3); // options each participant can add
+  const [targetPeople, setTargetPeople] = useState(""); // optional
+  const [lastError, setLastError] = useState(null);     // show full error on screen
+  const [lastPayload, setLastPayload] = useState(null); // show the insert body
 
   function generateCode(len = 6) {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -21,8 +23,11 @@ export default function CreateCollect() {
   }
 
   async function createRoom() {
+    setLastError(null);
+
     const t = title.trim();
     if (!t) return alert("Please enter a poll title.");
+
     const maxNum = Number(maxPerUser);
     const durNum = Number(duration);
     if (!Number.isFinite(maxNum) || maxNum < 1 || maxNum > 10) {
@@ -36,7 +41,7 @@ export default function CreateCollect() {
     const code = generateCode();
     const nowISO = new Date().toISOString();
 
-    // Build payload with ONLY required fields. Add optional hint only if valid.
+    // Build payload with ONLY required fields + optional target if valid
     const payload = {
       code,
       title: t,
@@ -46,21 +51,37 @@ export default function CreateCollect() {
       created_at: nowISO,
     };
 
-    // Add target hint ONLY if user typed a valid number
     const targetNum = Number(targetPeople);
-    if (Number.isFinite(targetNum) && targetPeople !== "") {
+    if (targetPeople !== "" && Number.isFinite(targetNum)) {
       payload.target_participants_hint = targetNum;
     }
 
-    const { error } = await supabase.from("collect_polls").insert(payload);
+    setLastPayload(payload);
+
+    // Try insert and include row back so we know what succeeded
+    const { data, error } = await supabase
+      .from("collect_polls")
+      .insert([payload])
+      .select("*");
 
     if (error) {
       console.error("[CreateCollect] insert error:", error);
-      alert("Could not create room.");
+      setLastError(error);
+      alert(
+        [
+          "Could not create room.",
+          error.code ? `code: ${error.code}` : "",
+          error.message ? `message: ${error.message}` : "",
+          error.hint ? `hint: ${error.hint}` : "",
+          error.details ? `details: ${error.details}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
       return;
     }
 
-    // Remember admin key locally so the host sees the finalize button
+    // success: remember admin key so the host can finalize
     localStorage.setItem(`collect-admin-${code}`, adminKey);
     nav(`/collect/${code}`);
   }
@@ -101,7 +122,9 @@ export default function CreateCollect() {
               style={s.select}
             >
               {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>{n}</option>
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
             </select>
           </div>
@@ -110,7 +133,9 @@ export default function CreateCollect() {
             <label style={s.label}>Target participants (optional)</label>
             <input
               value={targetPeople}
-              onChange={(e) => setTargetPeople(e.target.value.replace(/\D+/g, ""))}
+              onChange={(e) =>
+                setTargetPeople(e.target.value.replace(/\D+/g, ""))
+              }
               placeholder="e.g., 6"
               style={s.input}
               inputMode="numeric"
@@ -122,7 +147,42 @@ export default function CreateCollect() {
           <button style={s.primaryBtn} onClick={createRoom}>
             Create Collection Room
           </button>
-          <button style={s.secondaryBtn} onClick={() => nav("/")}>Cancel</button>
+          <button style={s.secondaryBtn} onClick={() => nav("/")}>
+            Cancel
+          </button>
+        </div>
+
+        {/* Debug panel so we can see exactly what's failing */}
+        <div style={s.debugBox}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Debug</div>
+          <div>
+            <strong>Payload:</strong>{" "}
+            <code style={s.code}>{JSON.stringify(lastPayload)}</code>
+          </div>
+          {lastError && (
+            <>
+              <div style={{ marginTop: 6 }}>
+                <strong>Error code:</strong> {lastError.code || "(none)"}
+              </div>
+              <div>
+                <strong>Message:</strong>{" "}
+                <code style={s.code}>{lastError.message}</code>
+              </div>
+              {lastError.hint && (
+                <div>
+                  <strong>Hint:</strong>{" "}
+                  <code style={s.code}>{lastError.hint}</code>
+                </div>
+              )}
+              {lastError.details && (
+                <div>
+                  <strong>Details:</strong>{" "}
+                  <code style={s.code}>{lastError.details}</code>
+                </div>
+              )}
+            </>
+          )}
+          {!lastError && <div>No errors yet.</div>}
         </div>
       </div>
     </div>
@@ -147,23 +207,57 @@ const s = {
     boxShadow: "0 0 20px rgba(255,140,0,.35)",
     boxSizing: "border-box",
   },
-  title: { margin: 0, fontSize: "clamp(22px,4.5vw,28px)", textShadow: "0 0 12px rgba(255,140,0,.8)" },
+  title: {
+    margin: 0,
+    fontSize: "clamp(22px,4.5vw,28px)",
+    textShadow: "0 0 12px rgba(255,140,0,.8)",
+  },
   label: { fontWeight: 700, marginBottom: 6 },
   input: {
-    width: "100%", padding: "12px 14px", borderRadius: 12, border: "1px solid #333",
-    background: "#121727", color: "#fff", outline: "none", boxSizing: "border-box"
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #333",
+    background: "#121727",
+    color: "#fff",
+    outline: "none",
+    boxSizing: "border-box",
   },
   select: {
-    width: 220, padding: "10px 12px", borderRadius: 12, border: "1px solid #333",
-    background: "#121727", color: "#fff", outline: "none"
+    width: 220,
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid #333",
+    background: "#121727",
+    color: "#fff",
+    outline: "none",
   },
   primaryBtn: {
-    padding: "12px 18px", borderRadius: 12, border: "none",
-    background: ORANGE, color: "#000", fontWeight: 800, cursor: "pointer",
-    boxShadow: "0 0 14px rgba(255,140,0,.8)"
+    padding: "12px 18px",
+    borderRadius: 12,
+    border: "none",
+    background: ORANGE,
+    color: "#000",
+    fontWeight: 800,
+    cursor: "pointer",
+    boxShadow: "0 0 14px rgba(255,140,0,.8)",
   },
   secondaryBtn: {
-    padding: "12px 16px", borderRadius: 12, border: `1px solid ${ORANGE}`,
-    background: "transparent", color: ORANGE, cursor: "pointer"
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
+    cursor: "pointer",
   },
+  debugBox: {
+    marginTop: 18,
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(255,140,0,.07)",
+    border: `1px solid rgba(255,140,0,.4)`,
+    color: "#ffd9b3",
+    fontSize: 12,
+  },
+  code: { wordBreak: "break-word" },
 };
