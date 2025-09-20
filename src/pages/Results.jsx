@@ -16,8 +16,10 @@ function fmtHM(ms) {
 
 /* --- a static “fancy” crown (SVG gradient + subtle glow) --- */
 function FancyCrown({ size = 22 }) {
-  const id = "crownGrad" + Math.random().toString(36).slice(2);
-  const glow = "crownGlow" + Math.random().toString(36).slice(2);
+  // unique ids so multiple crowns don't clash
+  const gradId = "crownGrad_" + Math.random().toString(36).slice(2);
+  const glowId = "crownGlow_" + Math.random().toString(36).slice(2);
+
   return (
     <svg
       width={size}
@@ -27,12 +29,12 @@ function FancyCrown({ size = 22 }) {
       style={{ flex: "0 0 auto", filter: "drop-shadow(0 0 6px rgba(255,140,0,.55))" }}
     >
       <defs>
-        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="#ffe7a1" />
           <stop offset="55%" stopColor="#ffc04d" />
           <stop offset="100%" stopColor="#ff9b00" />
         </linearGradient>
-        <filter id={glow} x="-50%" y="-50%" width="200%" height="200%">
+        <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
@@ -48,18 +50,18 @@ function FancyCrown({ size = 22 }) {
         width="40"
         height="8"
         rx="3"
-        fill="url(#" + id + ")"
+        fill={`url(#${gradId})`}
         stroke="#d06b00"
         strokeWidth="2"
-        filter={`url(#${glow})`}
+        filter={`url(#${glowId})`}
       />
       {/* main crown shape */}
       <path
         d="M8 44 L16 22 L28 34 L36 20 L48 34 L56 22 L60 44 Z"
-        fill={`url(#${id})`}
+        fill={`url(#${gradId})`}
         stroke="#d06b00"
         strokeWidth="2.5"
-        filter={`url(#${glow})`}
+        filter={`url(#${glowId})`}
       />
       {/* jewels */}
       <circle cx="16" cy="22" r="3.2" fill="#fff6c8" stroke="#e0b300" strokeWidth="1" />
@@ -253,9 +255,7 @@ export default function Results() {
               <div style={styles.rankCell}>
                 <span style={styles.rankNum}>{row.rank}</span>
                 {isWinner && <FancyCrown size={22} />}
-                {row.tie && (
-                  <span style={styles.tieBadge}>TIE</span>
-                )}
+                {row.tie && <span style={styles.tieBadge}>TIE</span>}
               </div>
               <div style={{ ...styles.optionCell, ...(isWinner ? styles.optionWinner : {}) }}>
                 {row.option}
@@ -283,7 +283,6 @@ function ScreenWrap(children) {
 }
 
 const styles = {
-  // mobile-safe outer wrap
   wrap: {
     minHeight: "100vh",
     display: "grid",
@@ -293,7 +292,6 @@ const styles = {
     padding: "clamp(8px, 2vw, 16px)",
     overflowX: "hidden",
   },
-  // card container
   card: {
     width: "100%",
     maxWidth: 720,
@@ -329,7 +327,6 @@ const styles = {
     fontSize: 12,
   },
 
-  // results rows
   resultRow: {
     display: "flex",
     alignItems: "center",
@@ -342,13 +339,12 @@ const styles = {
     minWidth: 0,
   },
 
-  // winner highlight: soft gradient + stronger glow + thicker border
+  // Winner: gentle gradient + stronger glow
   firstPlace: {
     borderColor: ORANGE,
     boxShadow:
       "0 0 0 1px rgba(255,140,0,.35) inset, 0 0 18px rgba(255,140,0,.55), 0 0 40px rgba(255,140,0,.25)",
-    background:
-      "linear-gradient(180deg, rgba(255,140,0,.18), rgba(255,140,0,.06))",
+    background: "linear-gradient(180deg, rgba(255,140,0,.18), rgba(255,140,0,.06))",
   },
 
   rankCell: { display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" },
@@ -373,9 +369,7 @@ const styles = {
   },
 
   optionCell: { fontWeight: 700, minWidth: 0, flex: "1 1 200px" },
-  optionWinner: {
-    textShadow: "0 0 10px rgba(255,140,0,.65)",
-  },
+  optionWinner: { textShadow: "0 0 10px rgba(255,140,0,.65)" },
 
   pointsCell: {
     marginLeft: "auto",
@@ -402,7 +396,6 @@ const styles = {
   },
 
   text: { opacity: 0.9 },
-
   banner: {
     marginBottom: 12,
     padding: 10,
