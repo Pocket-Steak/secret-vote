@@ -4,33 +4,39 @@ import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
+// minutes-only
+function fmtHM(ms) {
+  if (ms <= 0) return "0h 0m";
+  const mTotal = Math.floor(ms / 60000);
+  const h = Math.floor(mTotal / 60);
+  const m = mTotal % 60;
+  return `${h}h ${m}m`;
+}
+
 export default function CollectRoom() {
   const nav = useNavigate();
   const { code: raw } = useParams();
   const code = (raw || "").toUpperCase();
 
-  const [poll, setPoll] = useState(null);
+  const [poll, setPoll] = useState(null);   // row from collect_polls
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const [options, setOptions] = useState([]); // rows from collect_options
+  const [newOpt, setNewOpt] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [text, setText] = useState("");
-  const [list, setList] = useState([]);
-
-  // host?
-  const adminKey = localStorage.getItem(`sv_admin_${code}`) || null;
-
-  // load poll
+  // Load collection poll
   useEffect(() => {
-    let cancel = false;
+    let cancelled = false;
     (async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from("polls")
+        .from("collect_polls")
         .select("*")
         .eq("code", code)
         .maybeSingle();
-      if (!cancel) {
+
+      if (!cancelled) {
         if (error) {
           console.error(error);
           setPoll(null);
@@ -40,204 +46,274 @@ export default function CollectRoom() {
         setLoading(false);
       }
     })();
-    return () => { cancel = true; };
+    return () => { cancelled = true; };
   }, [code]);
 
-  // live clock (just for future tweaks)
+  // Tick timer (for fun / parity)
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(t);
   }, []);
 
-  // live list of options
+  // Read collected options repeatedly
   useEffect(() => {
     if (!poll?.id) return;
-    let cancel = false;
+    let cancelled = false;
 
     const read = async () => {
       const { data, error } = await supabase
-        .from("option_submissions")
+        .from("collect_options")
         .select("*")
         .eq("poll_id", poll.id)
-        .order("id", { ascending: true });
+        .order("created_at", { ascending: true });
 
-      if (!cancel) {
-        if (error) console.error(error);
-        setList(Array.isArray(data) ? data : []);
+      if (!cancelled) {
+        if (error) {
+          console.error(error);
+          setOptions([]);
+        } else {
+          setOptions(Array.isArray(data) ? data : []);
+        }
       }
     };
 
     read();
-    const t = setInterval(read, 1500);
-    return () => { cancel = true; clearInterval(t); };
+    const t = setInterval(read, 2000);
+    return () => { cancelled = true; clearInterval(t); };
   }, [poll?.id]);
 
-  const uniquePreview = useMemo(() => {
-    const map = new Map();
-    for (const r of list) {
-      const k = (r.option || "").trim().toLowerCase();
+  const uniqueOptions = useMemo(() => {
+    const seen = new Set();
+    const arr = [];
+    for (const r of options) {
+      const k = String(r.option || "").trim().toLowerCase();
       if (!k) continue;
-      if (!map.has(k)) map.set(k, r.option.trim().slice(0, 30));
+      if (seen.has(k)) continue;
+      seen.add(k);
+      arr.push(r.option.trim());
     }
-    return [...map.values()];
-  }, [list]);
+    return arr;
+  }, [options]);
 
-  async function submitOption() {
-    const t = text.trim();
+  async function addOption() {
+    const t = newOpt.trim();
     if (!t) return;
-    if (/[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(t)) return alert("Plain text only (no emojis).");
-    if (t.length > 60) return alert("60 characters max.");
+    if (t.length > 30) return alert("Option must be 30 characters or fewer.");
+    if (uniqueOptions.some((x) => x.toLowerCase() === t.toLowerCase())) {
+      return alert("That option is already in the list.");
+    }
     if (!poll?.id) return;
-
-    // simple local anti-spam: limit to 5 submissions in this browser
-    const key = `sv_submits_${code}`;
-    const count = Number(localStorage.getItem(key) || "0");
-    if (count >= 5) return alert("You’ve reached the submission limit on this device.");
-
-    setSubmitting(true);
+    setBusy(true);
     try {
-      const { error } = await supabase.from("option_submissions").insert({
+      const { error } = await supabase.from("collect_options").insert({
         poll_id: poll.id,
         option: t,
+        created_at: new Date().toISOString(),
       });
-      if (error) throw error;
-      localStorage.setItem(key, String(count + 1));
-      setText("");
-    } catch (e) {
-      console.error(e);
-      alert("Could not submit option.");
+      if (error) {
+        console.error(error);
+        alert("Could not add option.");
+        return;
+      }
+      setNewOpt("");
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
   }
 
-  async function startVoting() {
-    if (!adminKey) return alert("Only the host can start voting in this browser.");
+  // Finalize -> create real poll in "polls" using same code, then go to /room/:code
+  async function finalizeAndStartVoting() {
+    const opts = uniqueOptions;
+    if (opts.length < 2) return alert("Need at least 2 unique options to start voting.");
     if (!poll) return;
-    const duration = poll.duration_minutes || 120;
 
+    const N = opts.length;
+    const pointScheme = Array.from({ length: N }, (_, i) => 2 * (N - i));
+    const nowDt = new Date();
+    const closesAt = new Date(nowDt.getTime() + poll.vote_duration_minutes * 60000);
+    const expiresAt = new Date(closesAt.getTime() + 24 * 60 * 60 * 1000);
+
+    setBusy(true);
     try {
-      const { error } = await supabase.rpc("start_voting", {
-        p_code: code,
-        p_admin_key: adminKey,
-        p_duration_minutes: duration,
+      const { error } = await supabase.from("polls").insert({
+        code: poll.code, // reuse collection code for the voting room
+        title: poll.title,
+        options: opts,
+        point_scheme: pointScheme,
+        duration_minutes: poll.vote_duration_minutes,
+        created_at: nowDt.toISOString(),
+        closes_at: closesAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        revealed: false,
       });
-      if (error) throw error;
-      // send everyone to the normal room page
-      nav(`/room/${code}`);
-    } catch (e) {
-      console.error(e);
-      alert(e.message || "Could not start voting.");
+
+      if (error) {
+        console.error(error);
+        alert("Could not start the voting room.");
+        return;
+      }
+
+      // (optional) mark the collection poll closed, if such a column exists
+      // await supabase.from("collect_polls").update({ closed: true }).eq("id", poll.id);
+
+      nav(`/room/${poll.code}`);
+    } finally {
+      setBusy(false);
     }
   }
 
   if (loading) {
-    return Screen(
-      <div style={s.card}>
-        <h1 style={s.title}>Room {code}</h1>
-        <p style={{ opacity: 0.85 }}>Loading…</p>
-      </div>
-    );
+    return Screen(<p style={{ opacity: 0.8 }}>Loading…</p>);
   }
-
-  if (!poll || poll.phase !== "collect") {
-    // if the host already started voting, just go to the room
+  if (!poll) {
     return Screen(
-      <div style={s.card}>
-        <h1 style={s.title}>Room {code}</h1>
-        <p style={{ opacity: 0.85 }}>Collection is closed.</p>
-        <div style={{ marginTop: 10 }}>
-          <button style={s.primaryBtn} onClick={() => nav(`/room/${code}`)}>
-            Go to Voting
-          </button>
-        </div>
-      </div>
+      <>
+        <h1 style={st.title}>Room {code}</h1>
+        <p style={{ opacity: 0.9 }}>We couldn’t find this collection room.</p>
+        <button style={st.secondaryBtn} onClick={() => nav("/")}>Home</button>
+      </>
     );
   }
 
   return Screen(
-    <div style={s.card}>
-      <h1 style={s.title}>{poll.title}</h1>
-
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-        <span style={s.badge}>Code: {code}</span>
-        <span style={s.badge}>Phase: Collecting options</span>
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={st.headerRow}>
+        <h1 style={st.title}>{poll.title}</h1>
+        <div style={st.badge}>Code: {poll.code}</div>
       </div>
 
-      <div style={s.box}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Submit an option:</div>
+      <div style={st.box}>
+        <label style={st.label}>Add option</label>
         <div style={{ display: "flex", gap: 8 }}>
           <input
-            style={s.input}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            maxLength={60}
-            placeholder="Your idea (max 60 chars, no emojis)…"
+            style={st.input}
+            maxLength={30}
+            placeholder="Propose an option (max 30 chars)"
+            value={newOpt}
+            onChange={(e) => setNewOpt(e.target.value)}
           />
           <button
-            style={{ ...s.primaryBtn, opacity: submitting ? 0.6 : 1 }}
-            disabled={submitting}
-            onClick={submitOption}
+            style={{ ...st.primaryBtn, whiteSpace: "nowrap", opacity: busy ? 0.6 : 1 }}
+            disabled={busy}
+            onClick={addOption}
           >
             Add
           </button>
         </div>
-        <div style={{ marginTop: 6, opacity: 0.8, fontSize: 12 }}>
-          Each device can submit up to 5 ideas. Duplicates are de-duped automatically.
-        </div>
       </div>
 
-      <div style={{ marginTop: 14 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>
-          Current unique options ({uniquePreview.length}):
+      <div style={st.box}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>
+          Current suggestions ({uniqueOptions.length})
         </div>
-        <div style={{ display: "grid", gap: 8 }}>
-          {uniquePreview.length === 0 ? (
-            <div style={{ opacity: 0.7 }}>No options yet—be the first!</div>
-          ) : uniquePreview.map((opt, i) => (
-            <div key={i} style={s.row}>
-              <div style={s.dot} />
-              <div style={{ fontWeight: 700 }}>{opt}</div>
-            </div>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {uniqueOptions.length === 0 && (
+            <li style={{ opacity: 0.7 }}>No options yet — share the code and let people add!</li>
+          )}
+          {uniqueOptions.map((opt) => (
+            <li key={opt}>{opt}</li>
           ))}
-        </div>
+        </ul>
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-        <button style={s.linkBtn} onClick={() => nav("/")}>Home</button>
-
-        {adminKey && (
-          <button
-            style={{
-              ...s.primaryBtn,
-              background: "#12d06b",
-              boxShadow: "0 0 14px rgba(18,208,107,.6)",
-            }}
-            onClick={startVoting}
-            title="Build final list and open the vote"
-          >
-            Start Voting
-          </button>
-        )}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          style={{ ...st.primaryBtn, opacity: busy ? 0.6 : 1 }}
+          disabled={busy}
+          onClick={finalizeAndStartVoting}
+          title="Create the voting room and go to it"
+        >
+          Finalize & Start Voting
+        </button>
+        <button style={st.linkBtn} onClick={() => nav("/")}>Home</button>
       </div>
     </div>
   );
 }
 
-/* small helpers/style */
 function Screen(children) {
-  return <div style={s.wrap}>{children}</div>;
+  return (
+    <div style={st.wrap}>
+      <div style={st.card}>{children}</div>
+    </div>
+  );
 }
 
-const s = {
-  wrap: { minHeight: "100vh", display: "grid", placeItems: "center", background: "#0b0f17", color: "#e9e9f1", padding: 16 },
-  card: { width: "min(820px, 94vw)", padding: 24, borderRadius: 16, background: "rgba(255,255,255,0.04)", boxShadow: "0 0 20px rgba(255,140,0,.35)" },
-  title: { fontSize: 26, marginBottom: 10, textShadow: "0 0 12px rgba(255,140,0,.8)" },
-  badge: { padding: "6px 10px", borderRadius: 999, border: "1px solid #333", background: "#121727", letterSpacing: 1, fontSize: 12 },
-  box: { marginTop: 8, padding: 12, borderRadius: 12, border: "1px solid rgba(255,140,0,.35)", background: "rgba(255,255,255,0.03)" },
-  input: { flex: 1, minWidth: 220, padding: "12px 14px", borderRadius: 12, border: "1px solid #333", background: "#121727", color: "#fff", outline: "none" },
-  row: { display: "flex", alignItems: "center", gap: 8, padding: 10, borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid #222" },
-  dot: { width: 8, height: 8, borderRadius: 999, background: ORANGE, boxShadow: "0 0 10px rgba(255,140,0,.7)" },
-  primaryBtn: { padding: "12px 16px", borderRadius: 12, border: "none", background: ORANGE, color: "#000", fontWeight: 800, cursor: "pointer", boxShadow: "0 0 14px rgba(255,140,0,.8)" },
-  linkBtn: { padding: "12px 16px", borderRadius: 12, border: "1px solid #333", background: "transparent", color: "#bbb", cursor: "pointer" },
+const st = {
+  wrap: {
+    minHeight: "100vh",
+    display: "grid",
+    placeItems: "center",
+    background: "#0b0f17",
+    color: "#e9e9f1",
+    padding: "clamp(8px, 2vw, 16px)",
+  },
+  card: {
+    width: "100%",
+    maxWidth: 720,
+    padding: "clamp(16px, 3vw, 24px)",
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.04)",
+    boxShadow: "0 0 20px rgba(255,140,0,.35)",
+    boxSizing: "border-box",
+  },
+  title: {
+    margin: 0,
+    fontSize: "clamp(22px, 4.5vw, 28px)",
+    textShadow: "0 0 12px rgba(255,140,0,.8)",
+  },
+  headerRow: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  badge: {
+    marginLeft: "auto",
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: "1px solid #333",
+    background: "#121727",
+    letterSpacing: 1,
+    fontSize: 12,
+  },
+  box: {
+    padding: 12,
+    borderRadius: 12,
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid #222",
+  },
+  label: { display: "block", fontWeight: 700, marginBottom: 6 },
+  input: {
+    flex: 1,
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid #333",
+    background: "#121727",
+    color: "#fff",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  primaryBtn: {
+    padding: "12px 18px",
+    borderRadius: 12,
+    border: "none",
+    background: ORANGE,
+    color: "#000",
+    fontWeight: 800,
+    cursor: "pointer",
+    boxShadow: "0 0 14px rgba(255,140,0,.8)",
+  },
+  secondaryBtn: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
+    cursor: "pointer",
+  },
+  linkBtn: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: "1px solid #333",
+    background: "transparent",
+    color: "#aaa",
+    cursor: "pointer",
+  },
 };
