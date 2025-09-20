@@ -25,15 +25,7 @@ export default function CollectAdd() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // inputs for options (size determined by max_per_user or default 3)
-  const N = useMemo(() => {
-    const n = Number(poll?.max_per_user) || 3;
-    return Math.min(Math.max(n, 1), 10);
-  }, [poll?.max_per_user]);
-
-  const [values, setValues] = useState([]);
-
-  // Load poll metadata by code
+  // Load poll by code
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -50,67 +42,22 @@ export default function CollectAdd() {
           setPoll(null);
         } else {
           setPoll(data);
-          // prepare inputs sized to max_per_user
-          setValues(Array((Number(data?.max_per_user) || 3)).fill(""));
+          const n = Math.min(Math.max(Number(data?.max_per_user) || 3, 1), 10);
+          setValues(Array(n).fill(""));
         }
         setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [code]);
 
-  async function submit() {
-    if (!poll?.id) return;
-    const author_token = getClientToken();
+  // inputs sized to max_per_user (capped 1..10)
+  const N = useMemo(
+    () => Math.min(Math.max(Number(poll?.max_per_user) || 3, 1), 10),
+    [poll?.max_per_user]
+  );
+  const [values, setValues] = useState([]);
 
-    // normalize, dedupe (case-insensitive), and strip empties
-    const cleaned = values
-      .map((s) => (s || "").trim())
-      .filter(Boolean);
-
-    // case-insensitive de-dup
-    const seen = new Set();
-    const unique = [];
-    for (const t of cleaned) {
-      const k = t.toLowerCase();
-      if (!seen.has(k)) {
-        seen.add(k);
-        unique.push(t);
-      }
-    }
-
-    if (unique.length === 0) {
-      alert("Please enter at least one option.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      // build rows including the author_token (this is the key fix)
-      const rows = unique.map((text) => ({
-        poll_id: poll.id,
-        text,
-        author_token,
-      }));
-
-      const { error } = await supabase.from("collect_options").insert(rows);
-      if (error) throw error;
-
-      // Back to the collection landing page
-      nav(`/collect/${code}`, { state: { added: unique.length } });
-    } catch (err) {
-      console.error(err);
-      alert(
-        `Could not add option(s).\n\n${err?.message || "Unknown error occurred."}`
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // UI helpers
   function setAt(i, val) {
     setValues((arr) => {
       const next = [...arr];
@@ -119,7 +66,43 @@ export default function CollectAdd() {
     });
   }
 
-  // Render branches
+  async function submit() {
+    if (!poll?.id) return;
+
+    // clean & dedupe
+    const cleaned = values.map((s) => (s || "").trim()).filter(Boolean);
+    const seen = new Set();
+    const unique = [];
+    for (const t of cleaned) {
+      const k = t.toLowerCase();
+      if (!seen.has(k)) { seen.add(k); unique.push(t); }
+    }
+    if (unique.length === 0) {
+      alert("Please enter at least one option.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const author_token = getClientToken();
+
+      // 🔒 Use RPC so author_token is set on the server
+      const { error } = await supabase.rpc("collect_add_options", {
+        _poll_id: poll.id,
+        _author_token: author_token,
+        _options: unique,
+      });
+      if (error) throw error;
+
+      nav(`/collect/${code}`, { state: { added: unique.length } });
+    } catch (err) {
+      console.error(err);
+      alert(`Could not add option(s).\n\n${err?.message || "Unknown error"}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading) {
     return ScreenWrap(
       <div style={s.card}>
@@ -135,9 +118,7 @@ export default function CollectAdd() {
         <p style={{ opacity: 0.8 }}>
           We couldn’t find this collection room. Double-check the code.
         </p>
-        <button style={s.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+        <button style={s.secondaryBtn} onClick={() => nav("/")}>Home</button>
       </div>
     );
   }
@@ -150,8 +131,7 @@ export default function CollectAdd() {
       </div>
 
       <div style={s.helperBox}>
-        Add your ideas below. You can add <strong>{N}</strong>{" "}
-        {N === 1 ? "option" : "options"}.
+        Add your ideas below. You can add <strong>{N}</strong> {N === 1 ? "option" : "options"}.
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
@@ -175,12 +155,9 @@ export default function CollectAdd() {
         >
           {submitting ? "Adding…" : "Add"}
         </button>
-        <button style={s.linkBtn} onClick={() => nav(`/collect/${code}`)}>
-          Back
-        </button>
+        <button style={s.linkBtn} onClick={() => nav(`/collect/${code}`)}>Back</button>
       </div>
 
-      {/* tiny debug footer; remove if you like */}
       <div style={{ marginTop: 10, opacity: 0.6, fontSize: 12 }}>
         Debug: client={getClientToken()} · poll_id={poll.id}
       </div>
@@ -188,7 +165,7 @@ export default function CollectAdd() {
   );
 }
 
-/* ------------------ layout helpers & styles ------------------ */
+/* ---------- layout helpers / styles ---------- */
 function ScreenWrap(children) {
   return <div style={s.wrap}>{children}</div>;
 }
@@ -220,11 +197,7 @@ const s = {
     gap: 12,
     flexWrap: "wrap",
   },
-  title: {
-    margin: 0,
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-  },
+  title: { margin: 0, fontSize: "clamp(22px, 4.5vw, 28px)", textShadow: "0 0 12px rgba(255,140,0,.8)" },
   badge: {
     padding: "6px 12px",
     borderRadius: 999,
