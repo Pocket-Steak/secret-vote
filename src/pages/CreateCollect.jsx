@@ -9,8 +9,8 @@ export default function CreateCollect() {
   const nav = useNavigate();
 
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState("120");      // minutes for voting after finalize
-  const [maxPerUser, setMaxPerUser] = useState(3);      // how many options each person can add
+  const [duration, setDuration] = useState("120"); // minutes for voting after finalize
+  const [maxPerUser, setMaxPerUser] = useState(3); // each participant may add N options
   const [targetPeople, setTargetPeople] = useState(""); // optional hint only
 
   function generateCode(len = 6) {
@@ -23,32 +23,45 @@ export default function CreateCollect() {
   async function createRoom() {
     const t = title.trim();
     if (!t) return alert("Please enter a poll title.");
-    if (maxPerUser < 1 || maxPerUser > 10) return alert("Max options per participant must be 1–10.");
+    const maxNum = Number(maxPerUser);
+    const durNum = Number(duration);
+    if (!Number.isFinite(maxNum) || maxNum < 1 || maxNum > 10) {
+      return alert("Max options per participant must be 1–10.");
+    }
+    if (!Number.isFinite(durNum) || durNum < 5) {
+      return alert("Voting duration looks invalid.");
+    }
 
-    // admin_key lets the host finalize later
     const adminKey = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
     const code = generateCode();
+    const nowISO = new Date().toISOString();
 
-    // create the collection poll row
-    const { error } = await supabase.from("collect_polls").insert({
+    // Build payload with ONLY required fields. Add optional hint only if valid.
+    const payload = {
       code,
       title: t,
-      max_per_user: maxPerUser,
+      max_per_user: maxNum,
       admin_key: adminKey,
-      voting_duration_minutes: parseInt(duration, 10),
-      target_participants_hint: targetPeople ? parseInt(targetPeople, 10) : null, // optional
-      created_at: new Date().toISOString(),
-    });
+      voting_duration_minutes: durNum,
+      created_at: nowISO,
+    };
+
+    // Add target hint ONLY if user typed a valid number
+    const targetNum = Number(targetPeople);
+    if (Number.isFinite(targetNum) && targetPeople !== "") {
+      payload.target_participants_hint = targetNum;
+    }
+
+    const { error } = await supabase.from("collect_polls").insert(payload);
 
     if (error) {
-      console.error(error);
+      console.error("[CreateCollect] insert error:", error);
       alert("Could not create room.");
       return;
     }
 
     // Remember admin key locally so the host sees the finalize button
     localStorage.setItem(`collect-admin-${code}`, adminKey);
-
     nav(`/collect/${code}`);
   }
 
@@ -66,42 +79,44 @@ export default function CreateCollect() {
           maxLength={80}
         />
 
-        <label style={{ ...s.label, marginTop: 12 }}>
-          Voting Duration (after collection)
-        </label>
-        <select
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          style={s.select}
-        >
-          <option value="30">30 minutes</option>
-          <option value="120">2 hours</option>
-          <option value="1440">24 hours</option>
-        </select>
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={s.label}>Voting Duration (after collection)</label>
+            <select
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              style={s.select}
+            >
+              <option value="30">30 minutes</option>
+              <option value="120">2 hours</option>
+              <option value="1440">24 hours</option>
+            </select>
+          </div>
 
-        <label style={{ ...s.label, marginTop: 12 }}>
-          Max options each participant can add
-        </label>
-        <select
-          value={maxPerUser}
-          onChange={(e) => setMaxPerUser(parseInt(e.target.value, 10))}
-          style={s.select}
-        >
-          {[1, 2, 3, 4, 5].map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </select>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={s.label}>Max options each participant can add</label>
+            <select
+              value={maxPerUser}
+              onChange={(e) => setMaxPerUser(Number(e.target.value))}
+              style={s.select}
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
 
-        <label style={{ ...s.label, marginTop: 12 }}>
-          Target participants (optional)
-        </label>
-        <input
-          value={targetPeople}
-          onChange={(e) => setTargetPeople(e.target.value.replace(/\D+/g, ""))}
-          placeholder="e.g., 6"
-          style={s.input}
-          inputMode="numeric"
-        />
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={s.label}>Target participants (optional)</label>
+            <input
+              value={targetPeople}
+              onChange={(e) => setTargetPeople(e.target.value.replace(/\D+/g, ""))}
+              placeholder="e.g., 6"
+              style={s.input}
+              inputMode="numeric"
+            />
+          </div>
+        </div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
           <button style={s.primaryBtn} onClick={createRoom}>
