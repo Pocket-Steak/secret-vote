@@ -1,35 +1,44 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// src/App.jsx
+import { Routes, Route, Navigate } from "react-router-dom";
 
-function App() {
-  const [count, setCount] = useState(0)
+// existing pages
+import Home from "./pages/Home.jsx";
+import Create from "./pages/Create.jsx";
+import Landing from "./pages/Landing.jsx";     // your /room/:code page
+import Vote from "./pages/Vote.jsx";
+import Results from "./pages/Results.jsx";
 
+// NEW pages
+import CreateCollect from "./pages/CreateCollect.jsx";
+import CollectRoom from "./pages/CollectRoom.jsx";
+
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div style={styles.app}>
+      <Routes>
+        {/* Home */}
+        <Route path="/" element={<Home />} />
+
+        {/* Existing flow */}
+        <Route path="/create" element={<Create />} />
+        <Route path="/room/:code" element={<Landing />} />
+        <Route path="/vote/:code" element={<Vote />} />
+        <Route path="/results/:code" element={<Results />} />
+
+        {/* NEW: collect options first */}
+        <Route path="/create-collect" element={<CreateCollect />} />
+        <Route path="/collect/:code" element={<CollectRoom />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  );
 }
 
-export default App
+const styles = {
+  app: {
+    minHeight: "100vh",
+    background: "#0b0f17",
+  },
+};
