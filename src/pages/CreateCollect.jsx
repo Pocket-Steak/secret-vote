@@ -46,7 +46,7 @@ export default function CreateCollect() {
 
     // PIN optional, but if present must be 4+ digits
     const pin = hostPin.trim();
-    if (pin && (!/^\d{4,}$/.test(pin))) {
+    if (pin && !/^\d{4,}$/.test(pin)) {
       alert("PIN must be at least 4 digits (numbers only).");
       return;
     }
@@ -68,16 +68,22 @@ export default function CreateCollect() {
       const payload = {
         code,
         title: t,
-        voting_duration_minutes: Number(durationMin),
+
+        // IMPORTANT: use `duration_minutes` (not `voting_duration_minutes`)
+        duration_minutes: Number(durationMin),
+
         max_per_user: Number(maxPerUser),
         target_participants_hint: target, // nullable
         host_pin: pin || null,            // nullable
+
+        // (optional but recommended so later steps don't rely on a default)
+        status: "collecting",
+
+        // keep created_at only if you *don't* have a default in DB
         created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from("collect_polls")
-        .insert(payload);
+      const { error } = await supabase.from("collect_polls").insert(payload);
 
       if (error) {
         console.error(error);
@@ -118,7 +124,9 @@ export default function CreateCollect() {
             style={s.select}
           >
             {durations.map((d) => (
-              <option key={d.minutes} value={d.minutes}>{d.label}</option>
+              <option key={d.minutes} value={d.minutes}>
+                {d.label}
+              </option>
             ))}
           </select>
           <span style={s.chev}>▾</span>
@@ -133,7 +141,9 @@ export default function CreateCollect() {
             style={s.select}
           >
             {maxChoices.map((n) => (
-              <option key={n} value={n}>{n}</option>
+              <option key={n} value={n}>
+                {n}
+              </option>
             ))}
           </select>
           <span style={s.chev}>▾</span>
@@ -169,7 +179,9 @@ export default function CreateCollect() {
           >
             {submitting ? "Creating…" : "Create Collection Room"}
           </button>
-          <button style={s.secondaryBtn} onClick={() => nav("/")}>Cancel</button>
+          <button style={s.secondaryBtn} onClick={() => nav("/")}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>
