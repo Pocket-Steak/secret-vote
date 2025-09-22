@@ -1,9 +1,12 @@
+// src/pages/Home.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 export default function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Use Vite's base URL so the image works on GitHub Pages (/secret-vote/)
   const logoSrc = `${import.meta.env.BASE_URL}TheSecretVote.png`;
@@ -12,17 +15,58 @@ export default function Home() {
     nav("/create");
   }
 
-  // NEW: go to the "collect options first" flow
+  // Go to the "collect options first" flow
   function goCreateCollect() {
     nav("/create-collect");
   }
 
-  function goToRoom(e) {
+  // NEW: Auto-detect the destination from the code:
+  // 1) If code exists in collect_polls -> /collect/:code
+  // 2) Else if code exists in polls -> /vote/:code
+  // 3) Else show an alert
+  async function goToRoom(e) {
     e.preventDefault();
     const c = code.trim().toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(c))
-      return alert("Enter a 6-character code (letters/numbers).");
-    nav(`/room/${c}`);
+    if (!/^[A-Z0-9]{6}$/.test(c)) {
+      alert("Enter a 6-character code (letters/numbers).");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Try collection rooms first
+      const { data: collect, error: ce } = await supabase
+        .from("collect_polls")
+        .select("code")
+        .eq("code", c)
+        .maybeSingle();
+
+      if (ce) console.error("collect lookup error", ce);
+      if (collect) {
+        nav(`/collect/${c}`);
+        return;
+      }
+
+      // Try standard polls for voting
+      const { data: poll, error: pe } = await supabase
+        .from("polls")
+        .select("code")
+        .eq("code", c)
+        .maybeSingle();
+
+      if (pe) console.error("poll lookup error", pe);
+      if (poll) {
+        nav(`/vote/${c}`);
+        return;
+      }
+
+      alert(`We couldn’t find a room with code “${c}”.`);
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -35,18 +79,8 @@ export default function Home() {
       />
 
       <div style={styles.card}>
-        <button style={styles.primaryBtn} onClick={goCreate}>
-          Create Poll
-        </button>
-
-        {/* NEW: outlined, full-width button for the collect flow */}
-        <button style={styles.outlineBtn} onClick={goCreateCollect}>
-          Collect Options First
-        </button>
-
-        {/* Label above the code entry */}
-        <div style={styles.entryLabel}>Have a code? Enter it below to cast your vote:</div>
-
+        {/* Code entry at the top */}
+        <div style={styles.entryLabel}>Have a code? Enter it to jump in:</div>
         <form onSubmit={goToRoom} style={styles.row}>
           <input
             value={code}
@@ -56,11 +90,22 @@ export default function Home() {
             style={styles.input}
             aria-label="Enter 6-character room code"
           />
-          <button type="submit" style={styles.secondaryBtn}>Go</button>
+          <button type="submit" style={styles.secondaryBtn} disabled={loading}>
+            {loading ? "Checking…" : "Go"}
+          </button>
         </form>
+
+        {/* Actions underneath */}
+        <button style={styles.primaryBtn} onClick={goCreate}>
+          Create a Poll
+        </button>
+
+        <button style={styles.outlineBtn} onClick={goCreateCollect}>
+          Create a Group Idea Poll
+        </button>
       </div>
 
-      <p style={styles.hint}>Type the code to join a poll.</p>
+      <p style={styles.hint}>Codes work for both collection and voting rooms.</p>
     </div>
   );
 }
@@ -133,7 +178,6 @@ const styles = {
     boxShadow: "0 0 12px rgba(255,140,0,.75)",
   },
 
-  // NEW: full-width outlined button to match the theme
   outlineBtn: {
     padding: "12px 16px",
     borderRadius: 12,
