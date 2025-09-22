@@ -66,33 +66,34 @@ export default function CreateCollect() {
     try {
       const code = genCode();
 
-      // IMPORTANT:
-      // Send BOTH the new and legacy column names so either schema path works.
+      // Make sure we send real numbers
+      const duration = Number(durationMin);
+      const maxAdded = Number(maxPerUser);
+
       const payload = {
         code,
         title: t,
 
-        // duration (both names)
-        voting_duration_minutes: Number(durationMin),
-        duration_minutes: Number(durationMin),
+        // send BOTH for schema compatibility
+        voting_duration_minutes: duration, // <-- primary for new schema
+        duration_minutes: duration,        // <-- compat for older code
 
-        // per-user limit (both names)
-        max_per_user: Number(maxPerUser),
-        max_options_per_user: Number(maxPerUser),
+        max_per_user: maxAdded,            // current column
+        max_options_per_user: maxAdded,    // compat if old column exists
 
-        target_participants_hint: target, // nullable
-        host_pin: pin || null,            // nullable
+        target_participants_hint: target,  // nullable
+        host_pin: pin || null,             // nullable
 
-        // recommended so downstream logic is predictable
+        // keep state explicit
         status: "collecting",
 
-        // include if your DB doesn't set this automatically
+        // include created_at if table doesn't default it
         created_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from("collect_polls")
-        .insert([payload]); // array form is safest with PostgREST
+      console.log("create collect payload", payload);
+
+      const { error } = await supabase.from("collect_polls").insert(payload);
 
       if (error) {
         console.error(error);
