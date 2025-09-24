@@ -70,28 +70,17 @@ export default function CreateCollect() {
       const duration = Number(durationMin);
       const maxAdded = Number(maxPerUser);
 
+      // ✅ Correct, minimal payload (matches the normalized DB)
       const payload = {
         code,
         title: t,
-
-        // send BOTH for schema compatibility
-        voting_duration_minutes: duration, // <-- primary for new schema
-        duration_minutes: duration,        // <-- compat for older code
-
-        max_per_user: maxAdded,            // current column
-        max_options_per_user: maxAdded,    // compat if old column exists
-
-        target_participants_hint: target,  // nullable
-        host_pin: pin || null,             // nullable
-
-        // keep state explicit
-        status: "collecting",
-
-        // include created_at if table doesn't default it
+        duration_minutes: duration,     // one duration field
+        max_per_user: maxAdded,         // one per-user limit field
+        target_participants_hint: target, // nullable
+        host_pin: pin || null,            // nullable
+        status: "collecting",             // explicit state
         created_at: new Date().toISOString(),
       };
-
-      console.log("create collect payload", payload);
 
       const { error } = await supabase.from("collect_polls").insert(payload);
 
