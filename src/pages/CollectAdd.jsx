@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { addOptionsByCode } from "../lib/collect";
 
 const ORANGE = "#ff8c00";
 
-/** Stable per-browser token stored in localStorage */
+/** Stable per-browser token stored in localStorage (for debug only) */
 function getClientToken() {
   const KEY = "client_token";
   let t = localStorage.getItem(KEY);
@@ -24,8 +25,9 @@ export default function CollectAdd() {
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [values, setValues] = useState([]);
 
-  // Load poll by code
+  // Load poll by code (for title + max_per_user)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -48,7 +50,9 @@ export default function CollectAdd() {
         setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [code]);
 
   // inputs sized to max_per_user (capped 1..10)
@@ -56,7 +60,6 @@ export default function CollectAdd() {
     () => Math.min(Math.max(Number(poll?.max_per_user) || 3, 1), 10),
     [poll?.max_per_user]
   );
-  const [values, setValues] = useState([]);
 
   function setAt(i, val) {
     setValues((arr) => {
@@ -67,7 +70,7 @@ export default function CollectAdd() {
   }
 
   async function submit() {
-    if (!poll?.id) return;
+    if (!poll) return;
 
     // clean & dedupe (case-insensitive)
     const cleaned = values.map((s) => (s || "").trim()).filter(Boolean);
@@ -75,7 +78,10 @@ export default function CollectAdd() {
     const unique = [];
     for (const t of cleaned) {
       const k = t.toLowerCase();
-      if (!seen.has(k)) { seen.add(k); unique.push(t); }
+      if (!seen.has(k)) {
+        seen.add(k);
+        unique.push(t);
+      }
     }
     if (unique.length === 0) {
       alert("Please enter at least one option.");
@@ -84,15 +90,8 @@ export default function CollectAdd() {
 
     setSubmitting(true);
     try {
-      const clientToken = getClientToken();
-
-      // ✅ Use server-side RPC that sets client_id
-      const { error } = await supabase.rpc("collect_add_options", {
-        _poll_id: poll.id,
-        _client_id: clientToken,
-        _options: unique,
-      });
-      if (error) throw error;
+      // ✅ This helper looks up the poll UUID and calls the RPC with correct args/types
+      await addOptionsByCode(code, unique);
 
       nav(`/collect/${code}`, { state: { added: unique.length } });
     } catch (err) {
@@ -118,7 +117,9 @@ export default function CollectAdd() {
         <p style={{ opacity: 0.8 }}>
           We couldn’t find this collection room. Double-check the code.
         </p>
-        <button style={s.secondaryBtn} onClick={() => nav("/")}>Home</button>
+        <button style={s.secondaryBtn} onClick={() => nav("/")}>
+          Home
+        </button>
       </div>
     );
   }
@@ -131,7 +132,8 @@ export default function CollectAdd() {
       </div>
 
       <div style={s.helperBox}>
-        Add your ideas below. You can add <strong>{N}</strong> {N === 1 ? "option" : "options"}.
+        Add your ideas below. You can add <strong>{N}</strong>{" "}
+        {N === 1 ? "option" : "options"}.
       </div>
 
       <div style={{ display: "grid", gap: 10 }}>
@@ -155,11 +157,13 @@ export default function CollectAdd() {
         >
           {submitting ? "Adding…" : "Add"}
         </button>
-        <button style={s.linkBtn} onClick={() => nav(`/collect/${code}`)}>Back</button>
+        <button style={s.linkBtn} onClick={() => nav(`/collect/${code}`)}>
+          Back
+        </button>
       </div>
 
       <div style={{ marginTop: 10, opacity: 0.6, fontSize: 12 }}>
-        Debug: client={getClientToken()} · poll_id={poll.id}
+        Debug: client={getClientToken()}
       </div>
     </div>
   );
@@ -197,7 +201,11 @@ const s = {
     gap: 12,
     flexWrap: "wrap",
   },
-  title: { margin: 0, fontSize: "clamp(22px, 4.5vw, 28px)", textShadow: "0 0 12px rgba(255,140,0,.8)" },
+  title: {
+    margin: 0,
+    fontSize: "clamp(22px, 4.5vw, 28px)",
+    textShadow: "0 0 12px rgba(255,140,0,.8)",
+  },
   badge: {
     padding: "6px 12px",
     borderRadius: 999,
