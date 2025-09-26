@@ -5,6 +5,46 @@ import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
+/** Small hook to read contributors/options/ballots for a code */
+function useCollectCounts(code, tick) {
+  const [counts, setCounts] = useState({
+    options_count: 0,
+    contributors_count: 0,
+    ballots_count: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("collect_counts", { _code: code });
+      if (!cancelled) {
+        if (error) {
+          console.error("collect_counts error", error);
+          setCounts({ options_count: 0, contributors_count: 0, ballots_count: 0 });
+        } else if (Array.isArray(data) && data.length) {
+          setCounts({
+            options_count: Number(data[0].options_count) || 0,
+            contributors_count: Number(data[0].contributors_count) || 0,
+            ballots_count: Number(data[0].ballots_count) || 0,
+          });
+        } else {
+          setCounts({ options_count: 0, contributors_count: 0, ballots_count: 0 });
+        }
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // re-fetch whenever code or the ticking timestamp changes (10s interval below)
+  }, [code, tick]);
+
+  return { counts, loading };
+}
+
 export default function CollectLanding() {
   const nav = useNavigate();
   const { code: raw } = useParams();
@@ -12,7 +52,7 @@ export default function CollectLanding() {
 
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(Date.now()); // tick every 10s for soft refresh + counts refresh
 
   // read collect_poll by code
   useEffect(() => {
@@ -37,9 +77,9 @@ export default function CollectLanding() {
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, now]); // also refresh this view every 10s like the counters
 
-  // soft refresh every 10s to catch status changes
+  // soft refresh every 10s to catch status changes and update counts
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(t);
@@ -48,6 +88,9 @@ export default function CollectLanding() {
   const status = useMemo(() => {
     return (poll?.status || "").toLowerCase(); // 'collecting' | 'voting' | 'closed'
   }, [poll]);
+
+  // live counters
+  const { counts, loading: countsLoading } = useCollectCounts(code, now);
 
   if (loading) {
     return ScreenWrap(
@@ -76,6 +119,17 @@ export default function CollectLanding() {
         {Number(poll.target_participants_hint) > 0 && (
           <span style={styles.badge}>Target: {poll.target_participants_hint}</span>
         )}
+
+        {/* New: live counters */}
+        <span style={styles.badge}>
+          Contributors: {countsLoading ? "…" : counts.contributors_count}
+        </span>
+        <span style={styles.badge}>
+          Options: {countsLoading ? "…" : counts.options_count}
+        </span>
+        <span style={styles.badge}>
+          Ballots: {countsLoading ? "…" : counts.ballots_count}
+        </span>
       </div>
 
       <p style={{ ...styles.text, marginTop: 10 }}>
