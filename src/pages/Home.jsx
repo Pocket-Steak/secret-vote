@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import logo from "../assets/TheSecretVote.png"; // <- use exact filename/case
+
+// ⬇️ use the exact filename/case you have on disk
+import logo from "../assets/theSecretVote.png";
 
 export default function Home() {
   const nav = useNavigate();
@@ -13,15 +15,13 @@ export default function Home() {
     nav("/create");
   }
 
-  // Go to the "collect options first" flow
   function goCreateCollect() {
     nav("/create-collect");
   }
 
-  // Auto-detect destination from the code
-  // 1) If code exists in collect_polls -> /collect/:code
-  // 2) Else if code exists in polls -> /vote/:code
-  // 3) Else show an alert
+  // Auto-route by code:
+  // 1) collect_polls -> /collect/:code
+  // 2) polls -> /vote/:code
   async function goToRoom(e) {
     e.preventDefault();
     const c = code.trim().toUpperCase();
@@ -67,28 +67,12 @@ export default function Home() {
 
   return (
     <div style={styles.wrap}>
-      {/* Title image */}
-      <img
-        src={logo}
-        alt="The Secret Vote"
-        style={styles.logoImg}
-        loading="eager"
-      />
+      {/* Title image with clear spacing below */}
+      <img src={logo} alt="The Secret Vote" style={styles.logoImg} loading="eager" />
 
-      {/* Three-card layout: Create • Join by Code (center) • Create Group Idea */}
-      <div style={styles.cardsRow}>
-        {/* Left: Create a Poll */}
-        <div style={styles.cardAction}>
-          <div style={styles.cardTitle}>Create a Poll</div>
-          <p style={styles.cardText}>
-            Make a quick, secret vote. Share the code, everyone joins and votes.
-          </p>
-          <button style={styles.primaryBtn} onClick={goCreate}>
-            Create a Poll
-          </button>
-        </div>
-
-        {/* Center: Code Entry */}
+      {/* STACKED: Code Entry (top) → Create Poll → Create Group Idea */}
+      <div style={styles.cardsColumn}>
+        {/* 1) Join with code */}
         <div style={styles.cardJoin} aria-label="Join with a code">
           <div style={styles.entryLabel}>Have a code? Jump in:</div>
           <form onSubmit={goToRoom} style={styles.row}>
@@ -109,7 +93,18 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right: Create a Group Idea Poll */}
+        {/* 2) Create a Poll */}
+        <div style={styles.cardAction}>
+          <div style={styles.cardTitle}>Create a Poll</div>
+          <p style={styles.cardText}>
+            Make a quick, secret vote. Share the code, everyone joins and votes.
+          </p>
+          <button style={styles.primaryBtn} onClick={goCreate}>
+            Create a Poll
+          </button>
+        </div>
+
+        {/* 3) Create a Group Idea Poll */}
         <div style={styles.cardAction}>
           <div style={styles.cardTitle}>Create a Group Idea Poll</div>
           <p style={styles.cardText}>
@@ -141,24 +136,24 @@ const styles = {
     color: "#e9e9f1",
   },
 
-  // Title image with extra space below
+  // Title image with extra separation from the cards
   logoImg: {
     width: "min(420px, 72vw)",
     height: "auto",
     display: "block",
     borderRadius: 16,
     boxShadow: "0 0 16px rgba(255,140,0,.35)",
-    marginBottom: 32, // << clear space between title and cards
+    marginBottom: 32, // spacing under the title image
     filter: "drop-shadow(0 0 10px rgba(255,140,0,.35))",
   },
 
-  // Flex row that wraps to a column on small screens
-  cardsRow: {
+  // Stacked column for the three cards
+  cardsColumn: {
     display: "flex",
-    flexWrap: "wrap",
-    gap: 16,
-    justifyContent: "center",
-    width: "min(1040px, 96vw)",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 18,
+    width: "min(720px, 96vw)", // unified max width for all three
   },
 
   // Action cards
@@ -167,22 +162,21 @@ const styles = {
     borderRadius: 16,
     background: "rgba(255,255,255,0.04)",
     boxShadow: "0 0 20px rgba(255,140,0,.25)",
-    flex: "1 1 320px",
-    maxWidth: 340,
+    width: "100%",
+    maxWidth: "min(720px, 96vw)",
     display: "flex",
     flexDirection: "column",
     gap: 12,
-    transition: "transform .15s ease, box-shadow .15s ease",
   },
 
-  // Center join card highlighted
+  // Highlighted join card
   cardJoin: {
     padding: 16,
     borderRadius: 16,
     background: "rgba(255,255,255,0.06)",
     boxShadow: "0 0 24px rgba(255,140,0,.35)",
-    flex: "1 1 360px",
-    maxWidth: 380,
+    width: "100%",
+    maxWidth: "min(720px, 96vw)",
     display: "flex",
     flexDirection: "column",
     gap: 10,
@@ -208,11 +202,7 @@ const styles = {
     textAlign: "center",
   },
 
-  row: {
-    display: "flex",
-    gap: 8,
-    justifyContent: "center",
-  },
+  row: { display: "flex", gap: 8, justifyContent: "center" },
 
   input: {
     padding: "12px 14px",
@@ -221,7 +211,7 @@ const styles = {
     background: "#121727",
     color: "#fff",
     width: "100%",
-    maxWidth: 220,
+    maxWidth: 260,
     letterSpacing: 2,
     textTransform: "uppercase",
     outline: "none",
