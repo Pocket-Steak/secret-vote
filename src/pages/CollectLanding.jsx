@@ -52,7 +52,6 @@ export default function CollectLanding() {
       setCountsErr(error.message || "Could not load counts");
       setCounts(null);
     } else {
-      // data is a row or array (depending on Supabase version). Normalize.
       const row = Array.isArray(data) ? data[0] : data;
       setCounts(row || null);
     }
@@ -63,13 +62,10 @@ export default function CollectLanding() {
     let timer;
     if (!code) return;
 
-    // initial fetch
     fetchCounts();
 
-    // refresh only while the room is active
     const active = (poll?.status || "").toLowerCase();
     const shouldRefresh = active === "collecting" || active === "voting";
-
     if (shouldRefresh) {
       timer = setInterval(fetchCounts, 10000); // 10s
     }
@@ -77,13 +73,9 @@ export default function CollectLanding() {
     return () => {
       if (timer) clearInterval(timer);
     };
-    // re-run when code or poll.status changes
   }, [code, poll?.status]);
 
-  const status = useMemo(
-    () => (poll?.status || "").toLowerCase(), 
-    [poll]
-  );
+  const status = useMemo(() => (poll?.status || "").toLowerCase(), [poll]);
 
   if (loading) {
     return ScreenWrap(
@@ -109,6 +101,10 @@ export default function CollectLanding() {
   const contrib = counts?.contributors_count ?? 0;
   const ballots = counts?.ballots_count ?? 0;
 
+  // -------- Results button helpers --------
+  const hasBallots = ballots > 0;
+  const resultsLabel = status === "voting" ? "Live Results" : "View Results";
+
   return ScreenWrap(
     <div style={styles.container}>
       <h1 style={styles.title}>{poll.title || "Poll"}</h1>
@@ -119,8 +115,6 @@ export default function CollectLanding() {
         {!!Number(poll.target_participants_hint) && (
           <span style={styles.badge}>Target: {poll.target_participants_hint}</span>
         )}
-
-        {/* new: counts badges */}
         <span style={styles.badge}>Options: {opts}</span>
         <span style={styles.badge}>Contributors: {contrib}</span>
         <span style={styles.badge}>Ballots: {ballots}</span>
@@ -160,15 +154,18 @@ export default function CollectLanding() {
           </button>
         )}
 
-        {/* closed → Results */}
-        {status === "closed" && (
-          <button
-            style={styles.primaryBtn}
-            onClick={() => nav(`/results/${code}`)}
-          >
-            View Results
-          </button>
-        )}
+        {/* NEW: Results button (always visible, disabled until there are ballots) */}
+        <button
+          style={{
+            ...styles.secondaryBtnSolid,
+            ...(hasBallots ? {} : styles.disabledBtn),
+          }}
+          disabled={!hasBallots}
+          onClick={() => nav(`/results/${code}`)}
+          title={hasBallots ? "Open results" : "No ballots yet"}
+        >
+          {resultsLabel}
+        </button>
 
         {/* Host options always available */}
         <button
@@ -249,6 +246,8 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 0 14px rgba(255,140,0,.8)",
   },
+
+  // outline orange
   secondaryBtn: {
     padding: "12px 16px",
     borderRadius: 12,
@@ -257,6 +256,24 @@ const styles = {
     color: ORANGE,
     cursor: "pointer",
   },
+
+  // solid, dark theme-friendly
+  secondaryBtnSolid: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: "none",
+    background: "#1b2236",
+    color: "#e9e9f1",
+    cursor: "pointer",
+    boxShadow: "0 0 12px rgba(255,140,0,.35)",
+  },
+
+  disabledBtn: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+    filter: "grayscale(30%)",
+  },
+
   linkBtn: {
     marginTop: 16,
     padding: "10px 14px",
