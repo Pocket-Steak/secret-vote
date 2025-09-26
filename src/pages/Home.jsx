@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-// ⇣ Match this to your actual filename/case in /src/assets/
+// ⬇️ Match filename/case exactly (e.g., TheSecretVote.png)
 import logo from "../assets/TheSecretVote.png";
 
 export default function Home() {
@@ -19,9 +19,7 @@ export default function Home() {
     nav("/create-collect");
   }
 
-  // Auto-route by code:
-  // 1) collect_polls -> /collect/:code
-  // 2) polls -> /vote/:code
+  // Route by code
   async function goToRoom(e) {
     e.preventDefault();
     const c = code.trim().toUpperCase();
@@ -37,7 +35,6 @@ export default function Home() {
         .select("code")
         .eq("code", c)
         .maybeSingle();
-
       if (ce) console.error("collect lookup error", ce);
       if (collect) {
         nav(`/collect/${c}`);
@@ -49,7 +46,6 @@ export default function Home() {
         .select("code")
         .eq("code", c)
         .maybeSingle();
-
       if (pe) console.error("poll lookup error", pe);
       if (poll) {
         nav(`/vote/${c}`);
@@ -67,7 +63,7 @@ export default function Home() {
 
   return (
     <div style={styles.wrap}>
-      {/* Title image with clear spacing below */}
+      {/* Title image */}
       <img src={logo} alt="The Secret Vote" style={styles.logoImg} loading="eager" />
 
       {/* STACKED: Code Entry (top) → Create Poll → Create Group Idea */}
@@ -75,6 +71,7 @@ export default function Home() {
         {/* 1) Join with code */}
         <div style={styles.cardJoin} aria-label="Join with a code">
           <div style={styles.entryLabel}>Have a code? Jump in:</div>
+
           <form onSubmit={goToRoom} style={styles.row}>
             <input
               value={code}
@@ -83,11 +80,15 @@ export default function Home() {
               maxLength={6}
               style={styles.input}
               aria-label="Enter 6-character room code"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoCorrect="off"
             />
             <button type="submit" style={styles.secondaryBtn} disabled={loading}>
               {loading ? "Checking…" : "Go"}
             </button>
           </form>
+
           <div style={styles.hintCenter}>
             Codes work for both collection and voting rooms.
           </div>
@@ -125,133 +126,52 @@ const ORANGE = "#ff8c00";
 
 const styles = {
   wrap: {
-    minHeight: "100vh",
+    minHeight: "100svh", // better on mobile Safari
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 12,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingTop: "max(18px, env(safe-area-inset-top))",
+    paddingBottom: "max(18px, env(safe-area-inset-bottom))",
     background: "#0b0f17",
     color: "#e9e9f1",
   },
 
-  // Title image with extra separation from the cards
+  // Title image — scales down on small screens
   logoImg: {
-    width: "min(420px, 72vw)",
+    width: "min(420px, 78vw)",
     height: "auto",
     display: "block",
     borderRadius: 16,
     boxShadow: "0 0 16px rgba(255,140,0,.35)",
-    marginBottom: 32, // spacing under the title image
+    marginBottom: 22, // a hair tighter for phones
     filter: "drop-shadow(0 0 10px rgba(255,140,0,.35))",
   },
 
-  // Stacked column for the three cards
+  // Single column for three cards (mobile-first width)
   cardsColumn: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 18,
-    width: "min(720px, 96vw)", // unified max width for all three
+    gap: 14,
+    width: "min(520px, 94vw)", // fits iPhone without horizontal scroll
+  },
+
+  // Base card appearance
+  cardBase: {
+    width: "100%",
+    maxWidth: "min(520px, 94vw)",
+    padding: 14,
+    borderRadius: 16,
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
   },
 
   // Action cards
   cardAction: {
-    padding: 16,
+    width: "100%",
+    maxWidth: "min(520px, 94vw)",
+    padding: 14,
     borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.25)",
-    width: "100%",
-    maxWidth: "min(720px, 96vw)",
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  },
-
-  // Highlighted join card
-  cardJoin: {
-    padding: 16,
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.06)",
-    boxShadow: "0 0 24px rgba(255,140,0,.35)",
-    width: "100%",
-    maxWidth: "min(720px, 96vw)",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 800,
-    letterSpacing: 0.3,
-    color: "#ffd9b3",
-    textShadow: "0 0 10px rgba(255,140,0,.35)",
-  },
-
-  cardText: { opacity: 0.85, lineHeight: 1.35, fontSize: 14 },
-
-  entryLabel: {
-    marginTop: 2,
-    marginBottom: 2,
-    fontWeight: 700,
-    fontSize: 14,
-    color: "#ffd9b3",
-    textShadow: "0 0 8px rgba(255,140,0,.35)",
-    textAlign: "center",
-  },
-
-  row: { display: "flex", gap: 8, justifyContent: "center" },
-
-  input: {
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    width: "100%",
-    maxWidth: 260,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    outline: "none",
-    boxSizing: "border-box",
-    textAlign: "center",
-  },
-
-  primaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#080000ff",
-    fontWeight: 700,
-    cursor: "pointer",
-    boxShadow: "0 0 12px rgba(255,140,0,.75)",
-  },
-
-  outlineBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    fontWeight: 700,
-    cursor: "pointer",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-
-  secondaryBtn: {
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  },
-
-  hintCenter: { opacity: 0.8, fontSize: 12, textAlign: "center" },
-  hint: { opacity: 0.7, fontSize: 12, marginTop: 10 },
-};
+    background: "rg
