@@ -8,8 +8,8 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Load title image from /public using Vite's base (works on GitHub Pages subpaths)
-  const logoSrc = `${import.meta.env.BASE_URL}TheSecretVote.png`; // place file in /public
+  // Title image from /public (works on GitHub Pages subpaths)
+  const logoSrc = `${import.meta.env.BASE_URL}TheSecretVote.png`;
 
   function goCreate() {
     nav("/create");
@@ -64,15 +64,16 @@ export default function Home() {
 
   return (
     <div style={styles.wrap}>
-      {/* Title image with mobile-friendly spacing */}
+      {/* Title image */}
       <img src={logoSrc} alt="The Secret Vote" style={styles.logoImg} loading="eager" />
 
       {/* STACKED: Code Entry (top) → Create Poll → Create Group Idea */}
-      <div style={styles.cardsColumn}>
+      <div style={styles.column}>
         {/* 1) Join with code */}
         <div style={styles.cardJoin} aria-label="Join with a code">
           <div style={styles.entryLabel}>Have a code? Jump in:</div>
 
+          {/* On phones, these stack vertically for comfort */}
           <form onSubmit={goToRoom} style={styles.row}>
             <input
               value={code}
@@ -85,7 +86,7 @@ export default function Home() {
               autoCapitalize="characters"
               autoCorrect="off"
             />
-            <button type="submit" style={styles.secondaryBtn} disabled={loading}>
+            <button type="submit" style={styles.goBtn} disabled={loading}>
               {loading ? "Checking…" : "Go"}
             </button>
           </form>
@@ -126,103 +127,103 @@ export default function Home() {
 const ORANGE = "#ff8c00";
 
 const styles = {
-  // Mobile-safe viewport + safe-area insets
+  // iPhone-friendly viewport with safe-area insets
   wrap: {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 12,
-    paddingTop: "max(18px, env(safe-area-inset-top))",
-    paddingBottom: "max(18px, env(safe-area-inset-bottom))",
+    paddingTop: "max(16px, env(safe-area-inset-top))",
+    paddingBottom: "max(16px, env(safe-area-inset-bottom))",
     background: "#0b0f17",
     color: "#e9e9f1",
   },
 
-  // Title image — scales nicely on iPhone
+  // Title image scaled for narrow screens
   logoImg: {
-    width: "min(420px, 80vw)",
+    width: "min(360px, 86vw)",
     height: "auto",
     display: "block",
-    borderRadius: 16,
-    boxShadow: "0 0 16px rgba(255,140,0,.35)",
-    marginBottom: 24,
-    filter: "drop-shadow(0 0 10px rgba(255,140,0,.35))",
+    borderRadius: 14,
+    boxShadow: "0 0 12px rgba(255,140,0,.3)",
+    marginBottom: 16,
+    filter: "drop-shadow(0 0 8px rgba(255,140,0,.28))",
   },
 
-  // Single column; width tuned for iPhone
-  cardsColumn: {
+  // Narrow single column so nothing feels cramped
+  column: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 14,
-    width: "min(520px, 94vw)", // prevents horizontal scroll on narrow phones
+    gap: 12,
+    width: "min(440px, 92vw)", // tighter than before → better on iPhone
   },
 
-  // Action cards
-  cardAction: {
+  baseCard: {
     width: "100%",
-    maxWidth: "min(520px, 94vw)",
     padding: 14,
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 18px rgba(255,140,0,.25)",
+    borderRadius: 14,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    boxSizing: "border-box",
   },
 
   // Highlighted Join card
   cardJoin: {
     width: "100%",
-    maxWidth: "min(520px, 94vw)",
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     background: "rgba(255,255,255,0.06)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
+    boxShadow: "0 0 14px rgba(255,140,0,.28)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+
+  // Action cards
+  cardAction: {
+    width: "100%",
+    padding: 14,
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.04)",
+    boxShadow: "0 0 12px rgba(255,140,0,.22)",
     display: "flex",
     flexDirection: "column",
     gap: 10,
   },
 
   cardTitle: {
-    fontSize: "clamp(17px, 2.6vw, 19px)",
+    fontSize: 18,
     fontWeight: 800,
     letterSpacing: 0.3,
     color: "#ffd9b3",
-    textShadow: "0 0 10px rgba(255,140,0,.35)",
+    textShadow: "0 0 8px rgba(255,140,0,.3)",
   },
 
-  cardText: {
-    opacity: 0.88,
-    lineHeight: 1.35,
-    fontSize: "clamp(14px, 2.8vw, 15px)",
-  },
+  cardText: { opacity: 0.88, lineHeight: 1.38, fontSize: 14 },
 
   entryLabel: {
     marginTop: 2,
     marginBottom: 2,
     fontWeight: 700,
-    fontSize: "clamp(14px, 2.8vw, 16px)",
+    fontSize: 14,
     color: "#ffd9b3",
-    textShadow: "0 0 8px rgba(255,140,0,.35)",
+    textShadow: "0 0 6px rgba(255,140,0,.28)",
     textAlign: "center",
   },
 
-  // Code row: wraps on small screens; input grows to fill
+  // Stack input and Go vertically → zero cramping
   row: {
     display: "flex",
+    flexDirection: "column",
     gap: 8,
-    flexWrap: "wrap",
-    justifyContent: "center",
   },
 
   input: {
-    flex: "1 1 240px",
     width: "100%",
-    maxWidth: 460,
     padding: "14px 16px",
-    minHeight: 44, // iOS tap target
+    minHeight: 46,               // iOS tap target
     borderRadius: 12,
     border: "1px solid #333",
     background: "#121727",
@@ -234,6 +235,19 @@ const styles = {
     textAlign: "center",
   },
 
+  goBtn: {
+    padding: "12px 16px",
+    minHeight: 46,
+    borderRadius: 12,
+    border: `1px solid ${ORANGE}`,
+    background: "transparent",
+    color: ORANGE,
+    fontWeight: 800,
+    cursor: "pointer",
+    width: "100%",               // full-width button under input
+    boxSizing: "border-box",
+  },
+
   primaryBtn: {
     padding: "14px 16px",
     minHeight: 46,
@@ -243,7 +257,7 @@ const styles = {
     color: "#080000ff",
     fontWeight: 800,
     cursor: "pointer",
-    boxShadow: "0 0 10px rgba(255,140,0,.65)",
+    boxShadow: "0 0 8px rgba(255,140,0,.5)",
   },
 
   outlineBtn: {
@@ -257,18 +271,6 @@ const styles = {
     cursor: "pointer",
     width: "100%",
     boxSizing: "border-box",
-  },
-
-  secondaryBtn: {
-    padding: "12px 16px",
-    minHeight: 44,
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
   },
 
   hintCenter: { opacity: 0.85, fontSize: 12, textAlign: "center" },
