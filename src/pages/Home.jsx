@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-// ⬇️ use the exact filename/case you have on disk
-import logo from "../assets/theSecretVote.png";
+// ⇣ Match this to your actual filename/case in /src/assets/
+import logo from "../assets/TheSecretVote.png";
 
 export default function Home() {
   const nav = useNavigate();
