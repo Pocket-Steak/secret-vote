@@ -121,36 +121,3 @@ input, select, textarea {
   a:hover { color: #747bff; }
   button { background-color: #f9f9f9; }
 }
-/* ===== Mobile-app only overrides (Capacitor shell only) ===== */
-/* The .mobile-app class is added in main.jsx when running natively */
-.mobile-app body {
-  /* keep content away from notch/home bar */
-  padding: max(12px, env(safe-area-inset-top, 0px))
-           max(12px, env(safe-area-inset-right, 0px))
-           max(12px, env(safe-area-inset-bottom, 0px))
-           max(12px, env(safe-area-inset-left, 0px));
-  min-height: 100dvh;
-}
-
-/* slightly narrower for one-handed reach in-app; web keeps normal width */
-.mobile-app .container {
-  max-width: 480px;
-  margin-inline: auto;
-}
-
-/* full-width inputs/buttons with comfy touch size in-app only */
-.mobile-app .input,
-.mobile-app .button {
-  width: 100%;
-  padding: 14px 16px;
-  font-size: 17px;
-  border-radius: 14px;
-}
-
-/* hero/logo sizing in app shell */
-.mobile-app .hero img,
-.mobile-app .hero svg {
-  max-width: min(88%, 420px);
-  height: auto;
-  display: block;
-}
