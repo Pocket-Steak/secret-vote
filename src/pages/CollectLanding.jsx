@@ -281,6 +281,10 @@ const styles = {
     border: "1px solid #333",
     background: "transparent",
     color: "#bbb",
+
+
+
+    
     cursor: "pointer",
   },
 };
