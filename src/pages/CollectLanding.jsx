@@ -5,46 +5,6 @@ import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
-/** Small hook to read contributors/options/ballots for a code */
-function useCollectCounts(code, tick) {
-  const [counts, setCounts] = useState({
-    options_count: 0,
-    contributors_count: 0,
-    ballots_count: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!code) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("collect_counts", { _code: code });
-      if (!cancelled) {
-        if (error) {
-          console.error("collect_counts error", error);
-          setCounts({ options_count: 0, contributors_count: 0, ballots_count: 0 });
-        } else if (Array.isArray(data) && data.length) {
-          setCounts({
-            options_count: Number(data[0].options_count) || 0,
-            contributors_count: Number(data[0].contributors_count) || 0,
-            ballots_count: Number(data[0].ballots_count) || 0,
-          });
-        } else {
-          setCounts({ options_count: 0, contributors_count: 0, ballots_count: 0 });
-        }
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // re-fetch whenever code or the ticking timestamp changes (10s interval below)
-  }, [code, tick]);
-
-  return { counts, loading };
-}
-
 export default function CollectLanding() {
   const nav = useNavigate();
   const { code: raw } = useParams();
@@ -52,9 +12,12 @@ export default function CollectLanding() {
 
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [now, setNow] = useState(Date.now()); // tick every 10s for soft refresh + counts refresh
 
-  // read collect_poll by code
+  // counts from RPC
+  const [counts, setCounts] = useState(null);
+  const [countsErr, setCountsErr] = useState(null);
+
+  // ---------- load collect_poll by code ----------
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -64,9 +27,10 @@ export default function CollectLanding() {
         .select("*")
         .eq("code", code)
         .maybeSingle();
+
       if (!cancelled) {
         if (error) {
-          console.error(error);
+          console.error("load collect_polls error:", error);
           setPoll(null);
         } else {
           setPoll(data);
@@ -77,20 +41,49 @@ export default function CollectLanding() {
     return () => {
       cancelled = true;
     };
-  }, [code, now]); // also refresh this view every 10s like the counters
+  }, [code]);
 
-  // soft refresh every 10s to catch status changes and update counts
+  // ---------- load counts via RPC ----------
+  async function fetchCounts() {
+    setCountsErr(null);
+    const { data, error } = await supabase.rpc("collect_counts", { _code: code });
+    if (error) {
+      console.error("collect_counts RPC error:", error);
+      setCountsErr(error.message || "Could not load counts");
+      setCounts(null);
+    } else {
+      // data is a row or array (depending on Supabase version). Normalize.
+      const row = Array.isArray(data) ? data[0] : data;
+      setCounts(row || null);
+    }
+  }
+
+  // first load + refresh while active
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 10000);
-    return () => clearInterval(t);
-  }, []);
+    let timer;
+    if (!code) return;
 
-  const status = useMemo(() => {
-    return (poll?.status || "").toLowerCase(); // 'collecting' | 'voting' | 'closed'
-  }, [poll]);
+    // initial fetch
+    fetchCounts();
 
-  // live counters
-  const { counts, loading: countsLoading } = useCollectCounts(code, now);
+    // refresh only while the room is active
+    const active = (poll?.status || "").toLowerCase();
+    const shouldRefresh = active === "collecting" || active === "voting";
+
+    if (shouldRefresh) {
+      timer = setInterval(fetchCounts, 10000); // 10s
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+    // re-run when code or poll.status changes
+  }, [code, poll?.status]);
+
+  const status = useMemo(
+    () => (poll?.status || "").toLowerCase(), 
+    [poll]
+  );
 
   if (loading) {
     return ScreenWrap(
@@ -99,15 +92,22 @@ export default function CollectLanding() {
       </div>
     );
   }
+
   if (!poll) {
     return ScreenWrap(
       <div style={styles.container}>
         <h1 style={styles.title}>Not found</h1>
-        <p style={styles.text}>We couldn’t find a collection room for code “{code}”.</p>
+        <p style={styles.text}>
+          We couldn’t find a collection room for code “{code}”.
+        </p>
         <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
       </div>
     );
   }
+
+  const opts = counts?.options_count ?? 0;
+  const contrib = counts?.contributors_count ?? 0;
+  const ballots = counts?.ballots_count ?? 0;
 
   return ScreenWrap(
     <div style={styles.container}>
@@ -116,21 +116,21 @@ export default function CollectLanding() {
       <div style={styles.badgesRow}>
         <span style={styles.badge}>Code: {code}</span>
         <span style={styles.badge}>Status: {status}</span>
-        {Number(poll.target_participants_hint) > 0 && (
+        {!!Number(poll.target_participants_hint) && (
           <span style={styles.badge}>Target: {poll.target_participants_hint}</span>
         )}
 
-        {/* New: live counters */}
-        <span style={styles.badge}>
-          Contributors: {countsLoading ? "…" : counts.contributors_count}
-        </span>
-        <span style={styles.badge}>
-          Options: {countsLoading ? "…" : counts.options_count}
-        </span>
-        <span style={styles.badge}>
-          Ballots: {countsLoading ? "…" : counts.ballots_count}
-        </span>
+        {/* new: counts badges */}
+        <span style={styles.badge}>Options: {opts}</span>
+        <span style={styles.badge}>Contributors: {contrib}</span>
+        <span style={styles.badge}>Ballots: {ballots}</span>
       </div>
+
+      {countsErr && (
+        <p style={{ ...styles.text, color: "#ffcccc", marginTop: 8 }}>
+          {countsErr}
+        </p>
+      )}
 
       <p style={{ ...styles.text, marginTop: 10 }}>
         Share the code <strong>{code}</strong> with participants.
@@ -191,7 +191,6 @@ function ScreenWrap(children) {
 }
 
 const styles = {
-  // outer
   wrap: {
     minHeight: "100vh",
     display: "grid",
@@ -201,7 +200,6 @@ const styles = {
     padding: "clamp(8px, 2vw, 16px)",
     overflowX: "hidden",
   },
-  // card
   container: {
     width: "100%",
     maxWidth: 780,
