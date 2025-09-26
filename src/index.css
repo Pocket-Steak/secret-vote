@@ -1,4 +1,8 @@
+/* =========================
+   Global base / mobile-safe
+   ========================= */
 :root {
+  /* Your original font + rendering prefs */
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -11,58 +15,109 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Safe-area CSS variables for iOS notch devices */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Comfortable tap targets on mobile */
+  --tap-min: 44px;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
+/* Basic element hygiene that plays well with inline styles */
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
+html, body, #root { height: 100%; }
+
+/* On mobile Safari, 100svh avoids URL-bar jump;
+   fall back to 100vh on older engines. */
 body {
   margin: 0;
   display: flex;
   place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100svh; /* mobile-friendly vh */
+  background: #242424;
+  color: rgba(255, 255, 255, 0.87);
+
+  /* Respect safe areas so content isn’t flush to the notch/home bar */
+  padding-top: max(0px, var(--safe-top));
+  padding-right: max(0px, var(--safe-right));
+  padding-bottom: max(0px, var(--safe-bottom));
+  padding-left: max(0px, var(--safe-left));
 }
 
+/* Media / images scale down on phones */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Links */
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: none;
+}
+a:hover { color: #535bf2; }
+
+/* Headings */
 h1 {
-  font-size: 3.2em;
+  font-size: clamp(1.8rem, 5vw, 3.2rem);
   line-height: 1.1;
+  margin: 0.2em 0 0.5em;
 }
 
+/* Buttons */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
-  font-size: 1em;
+  font-size: 1rem;
   font-weight: 500;
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, transform 0.08s ease;
+  min-height: var(--tap-min); /* Larger tap target on iPhone */
 }
-button:hover {
-  border-color: #646cff;
-}
+button:hover { border-color: #646cff; }
+button:active { transform: translateY(1px); }
 button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
+
+/* Inputs (helps your code box on phones) */
+input, select, textarea {
+  font: inherit;
+  min-height: var(--tap-min);
+  border-radius: 12px;
 }
 
+/* Reduce motion when user prefers it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Light mode adjustments (kept from your original) */
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
     background-color: #ffffff;
   }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  body { background: #ffffff; color: #213547; }
+  a:hover { color: #747bff; }
+  button { background-color: #f9f9f9; }
 }
