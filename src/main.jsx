@@ -1,6 +1,24 @@
+// src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Routes, Route } from "react-router-dom";
+import "./index.css"; // keep or remove if you import CSS elsewhere
+
+// Detect Capacitor/iOS/Android shell and tag the document for app-only styles
+(function () {
+  try {
+    const cap = window?.Capacitor;
+    const isNative =
+      (typeof cap?.isNativePlatform === "function" && cap.isNativePlatform()) ||
+      !!cap?.platform; // fallback for older Capacitor versions
+    if (isNative) {
+      document.documentElement.classList.add("mobile-app");
+      document.body.classList.add("mobile-app");
+    }
+  } catch {
+    // no-op on web
+  }
+})();
 
 // Existing flow
 import Home from "./pages/Home.jsx";
