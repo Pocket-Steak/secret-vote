@@ -30,12 +30,12 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # Write .env for Vite (from repo secrets)
       - name: Write Vite .env
         run: |
           echo "VITE_SUPABASE_URL=${VITE_SUPABASE_URL}" > .env
           echo "VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}" >> .env
-          echo "Wrote .env:" && sed 's/=.*/=[hidden]/' .env
+          sed -i.bak 's/=.*/=[hidden]/' .env || true
+          cat .env
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
@@ -43,7 +43,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      # SPA fallback for client-side routing on Pages
       - name: Create 404 fallback
         run: cp dist/index.html dist/404.html
 
@@ -51,4 +50,17 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
-        uses: actions/upload-pages-arti
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
