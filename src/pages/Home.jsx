@@ -3,13 +3,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+// ✅ Let Vite resolve the real URL at build time
+import logoUrl from "../assets/TheSecretVote.png";
+
 export default function Home() {
   const nav = useNavigate();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Title image from /public (works on GitHub Pages subpaths)
-  const logoSrc = `${import.meta.env.BASE_URL}TheSecretVote.png`;
 
   function goCreate() {
     nav("/create");
@@ -18,7 +18,6 @@ export default function Home() {
     nav("/create-collect");
   }
 
-  // Route by code:
   // 1) collect_polls -> /collect/:code
   // 2) polls -> /vote/:code
   async function goToRoom(e) {
@@ -65,7 +64,7 @@ export default function Home() {
   return (
     <div style={styles.wrap}>
       {/* Title image */}
-      <img src={logoSrc} alt="The Secret Vote" style={styles.logoImg} loading="eager" />
+      <img src={logoUrl} alt="The Secret Vote" style={styles.logoImg} loading="eager" />
 
       {/* STACKED: Code Entry (top) → Create Poll → Create Group Idea */}
       <div style={styles.column}>
@@ -73,7 +72,6 @@ export default function Home() {
         <div style={styles.cardJoin} aria-label="Join with a code">
           <div style={styles.entryLabel}>Have a code? Jump in:</div>
 
-          {/* On phones, these stack vertically for comfort */}
           <form onSubmit={goToRoom} style={styles.row}>
             <input
               value={code}
@@ -127,7 +125,6 @@ export default function Home() {
 const ORANGE = "#ff8c00";
 
 const styles = {
-  // iPhone-friendly viewport with safe-area insets
   wrap: {
     minHeight: "100vh",
     display: "flex",
@@ -139,8 +136,6 @@ const styles = {
     background: "#0b0f17",
     color: "#e9e9f1",
   },
-
-  // Title image scaled for narrow screens
   logoImg: {
     width: "min(360px, 86vw)",
     height: "auto",
@@ -150,16 +145,13 @@ const styles = {
     marginBottom: 16,
     filter: "drop-shadow(0 0 8px rgba(255,140,0,.28))",
   },
-
-  // Narrow single column so nothing feels cramped
   column: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 12,
-    width: "min(440px, 92vw)", // tighter than before → better on iPhone
+    width: "min(440px, 92vw)",
   },
-
   baseCard: {
     width: "100%",
     padding: 14,
@@ -168,8 +160,6 @@ const styles = {
     flexDirection: "column",
     boxSizing: "border-box",
   },
-
-  // Highlighted Join card
   cardJoin: {
     width: "100%",
     padding: 14,
@@ -180,8 +170,6 @@ const styles = {
     flexDirection: "column",
     gap: 10,
   },
-
-  // Action cards
   cardAction: {
     width: "100%",
     padding: 14,
@@ -192,7 +180,6 @@ const styles = {
     flexDirection: "column",
     gap: 10,
   },
-
   cardTitle: {
     fontSize: 18,
     fontWeight: 800,
@@ -200,9 +187,7 @@ const styles = {
     color: "#ffd9b3",
     textShadow: "0 0 8px rgba(255,140,0,.3)",
   },
-
   cardText: { opacity: 0.88, lineHeight: 1.38, fontSize: 14 },
-
   entryLabel: {
     marginTop: 2,
     marginBottom: 2,
@@ -212,18 +197,15 @@ const styles = {
     textShadow: "0 0 6px rgba(255,140,0,.28)",
     textAlign: "center",
   },
-
-  // Stack input and Go vertically → zero cramping
   row: {
     display: "flex",
     flexDirection: "column",
     gap: 8,
   },
-
   input: {
     width: "100%",
     padding: "14px 16px",
-    minHeight: 46,               // iOS tap target
+    minHeight: 46,
     borderRadius: 12,
     border: "1px solid #333",
     background: "#121727",
@@ -234,7 +216,6 @@ const styles = {
     boxSizing: "border-box",
     textAlign: "center",
   },
-
   goBtn: {
     padding: "12px 16px",
     minHeight: 46,
@@ -244,10 +225,9 @@ const styles = {
     color: ORANGE,
     fontWeight: 800,
     cursor: "pointer",
-    width: "100%",               // full-width button under input
+    width: "100%",
     boxSizing: "border-box",
   },
-
   primaryBtn: {
     padding: "14px 16px",
     minHeight: 46,
@@ -259,7 +239,6 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 0 8px rgba(255,140,0,.5)",
   },
-
   outlineBtn: {
     padding: "14px 16px",
     minHeight: 46,
@@ -272,7 +251,6 @@ const styles = {
     width: "100%",
     boxSizing: "border-box",
   },
-
   hintCenter: { opacity: 0.85, fontSize: 12, textAlign: "center" },
   hint: { opacity: 0.75, fontSize: 12, marginTop: 10 },
 };
