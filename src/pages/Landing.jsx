@@ -3,10 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-const ORANGE = "#ff8c00";
-
 export default function Landing() {
-  const { code } = useParams();
+  const { code: raw } = useParams();
+  const code = (raw || "").toUpperCase();
   const nav = useNavigate();
 
   const [poll, setPoll] = useState(null);
@@ -36,9 +35,7 @@ export default function Landing() {
       }
       setLoading(false);
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [code]);
 
   // refresh poll_results every 2s (only after poll is known)
@@ -63,10 +60,7 @@ export default function Landing() {
 
     read();
     const t = setInterval(read, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
+    return () => { cancelled = true; clearInterval(t); };
   }, [poll?.id]);
 
   // countdown
@@ -116,192 +110,206 @@ export default function Landing() {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1100);
-    } catch {
-      /* ignore */
-    }
+    } catch {/* ignore */}
   }
 
   if (loading) {
     return (
-      <div style={s.wrap}>
-        <div style={s.container}>
-          <div style={{ opacity: 0.8 }}>Loading…</div>
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <div className="help">Loading…</div>
+          </section>
         </div>
+        <ThemeStyles />
       </div>
     );
   }
 
   if (!poll) {
     return (
-      <div style={s.wrap}>
-        <div style={s.container}>
-          <h1 style={s.title}>Not found</h1>
-          <p style={{ opacity: 0.8 }}>We couldn’t find a room with code “{code}”.</p>
-          <button style={s.secondaryBtn} onClick={() => nav("/")}>
-            Home
-          </button>
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Not found</h1>
+            <p className="help">We couldn’t find a room with code “{code}”.</p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>Home</button>
+            </div>
+          </section>
         </div>
+        <ThemeStyles />
       </div>
     );
   }
 
   return (
-    <div style={s.wrap}>
-      <div style={s.container}>
-        <h1 style={s.title}>Poll launched!</h1>
-
-        <div style={s.shareBox}>
-          <div style={{ fontWeight: 700, marginBottom: 10 }}>
-            Share this code with voters:
+    <div className="wrap">
+      <div className="col">
+        <section className="card section">
+          <div className="head-row">
+            <h1 className="hdr">Poll launched!</h1>
+            <span className="timer">{endsText || "—"}</span>
           </div>
 
-          <div style={s.shareRow}>
-            <div style={s.codePill} title="Room code">
-              {code}
+          {/* Share panel */}
+          <div className="panel">
+            <div className="label" style={{ marginBottom: 8 }}>
+              Share this code with voters:
             </div>
-            <button onClick={copyCode} style={s.copyBtn} title="Copy room code">
-              {copied ? "Copied!" : "Copy Room Code"}
-            </button>
+
+            <div className="share-row">
+              <div className="code-pill" title="Room code">{code}</div>
+              <button className={`btn ${copied ? "btn-primary" : "btn-outline"}`} onClick={copyCode}>
+                {copied ? "Copied!" : "Copy Room Code"}
+              </button>
+            </div>
+
+            <div className="badges-row" style={{ marginTop: 10 }}>
+              <span className="badge">{endsText || "—"}</span>
+              <span className="badge">Ballots: {ballots}</span>
+            </div>
+
+            <div className="actions">
+              <button className="btn btn-primary" onClick={() => nav(`/vote/${code}`)}>
+                Vote
+              </button>
+              <button className="btn btn-outline" onClick={() => nav(`/results/${code}`)}>
+                View Results
+              </button>
+            </div>
           </div>
 
-          {/* Info row: countdown + ballots */}
-          <div style={s.infoRow}>
-            <div style={s.badge}>{endsText}</div>
-            <div style={s.badge}>Ballots: {ballots}</div>
+          <div className="stack" style={{ marginTop: 8 }}>
+            <button className="btn btn-outline" onClick={() => nav("/")}>Home</button>
           </div>
-
-          {/* Actions */}
-          <div style={s.actionsRow}>
-            <button style={s.primaryBtn} onClick={() => nav(`/vote/${code}`)}>
-              Vote
-            </button>
-            <button style={s.secondaryBtn} onClick={() => nav(`/results/${code}`)}>
-              View Results
-            </button>
-          </div>
-        </div>
-
-        <button style={s.linkBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+        </section>
       </div>
+
+      <ThemeStyles />
     </div>
   );
 }
 
-const s = {
-  // phone-safe outer shell
-  wrap: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-    padding: "clamp(8px, 2vw, 16px)",
-    overflowX: "hidden",
-  },
-  // container/card
-  container: {
-    width: "100%",
-    maxWidth: 720,
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    boxSizing: "border-box",
-    margin: "0 auto",
-  },
-  title: {
-    margin: 0,
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-  },
-  // share panel
-  shareBox: {
-    marginTop: 16,
-    padding: 18,
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,140,0,.25)",
-    boxShadow: "0 0 14px rgba(255,140,0,.25) inset",
-  },
-  // code + copy row — wraps on phones
-  shareRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    flexWrap: "wrap",
-  },
-  codePill: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "10px 14px",
-    borderRadius: 12,
-    border: "1px solid rgba(255,140,0,.5)",
-    background: "rgba(255,140,0,.08)",
-    color: "#ffd9b3",
-    fontWeight: 800,
-    letterSpacing: 1,
-  },
-  copyBtn: {
-    padding: "10px 14px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
+/** Inline theme so this page matches even without global index.css */
+function ThemeStyles() {
+  return (
+    <style>{`
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+  --container: min(720px, 94vw);
+}
 
-  // info row for countdown + ballots
-  infoRow: {
-    display: "flex",
-    gap: 10,
-    marginTop: 12,
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  badge: {
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: "1px solid #333",
-    background: "#121727",
-    fontSize: 12,
-    letterSpacing: 0.5,
-    color: "#e9e9f1",
-  },
+*{box-sizing:border-box}
+html,body,#root{min-height:100%}
+body{margin:0; background: var(--bg);}
 
-  // action buttons — wrap nicely on small screens
-  actionsRow: {
-    display: "flex",
-    gap: 12,
-    marginTop: 16,
-    flexWrap: "wrap",
-  },
-  primaryBtn: {
-    padding: "12px 18px",
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#000",
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 0 14px rgba(255,140,0,.8)",
-  },
-  secondaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
-  linkBtn: {
-    marginTop: 16,
-    padding: "10px 14px",
-    borderRadius: 10,
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#bbb",
-    cursor: "pointer",
-  },
-};
+.wrap{
+  min-height:100vh; min-height:100svh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+.col{ display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container); }
+
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px; padding:24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 14px 32px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
+
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+.head-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+
+/* Timer badge */
+.timer{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.12), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffdda8; letter-spacing:.04em; font-weight:800; font-size:.95rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.05) inset;
+}
+
+/* Panel */
+.panel{
+  margin-top: 6px; padding:16px; border-radius:16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,140,0,.25);
+  box-shadow: 0 0 14px rgba(255,140,0,.10) inset;
+}
+.label{ font-weight:800; }
+
+/* Share row */
+.share-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.code-pill{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:12px 16px; border-radius:14px; font-weight:900; letter-spacing:.12em;
+  background: #181f33; color: var(--ink);
+  border:1px solid rgba(255,140,0,.85);
+  box-shadow: 0 8px 18px rgba(255,140,0,.25), 0 0 8px rgba(255,140,0,.35) inset;
+}
+
+/* Badges row */
+.badges-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.badge{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.10), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffb25a; letter-spacing:.06em; font-weight:700; font-size:.9rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+
+/* Actions */
+.actions{ display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+
+/* Buttons */
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 12px rgba(255,140,0,.24), 0 1px 0 rgba(140,70,0,.9) inset, 0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
+
+@media (max-width:600px){ .card{padding:18px} }
+    `}</style>
+  );
+}
