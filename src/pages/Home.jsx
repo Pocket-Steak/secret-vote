@@ -313,7 +313,7 @@ body{
   box-shadow: 0 8px 14px rgba(255,140,0,.28);
 }
 
-.footer-tip{opacity:.75; font-size:.9rem; margin-top:10px}
+.footer-tip{opacity:.75; font-size:.9rem; margin-top:14px}
 
 @media (max-width:600px){
   .wrap{padding:22px 14px 60px}
