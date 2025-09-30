@@ -62,195 +62,212 @@ export default function Home() {
   }
 
   return (
-    <div style={styles.wrap}>
+    <div className="wrap">
       {/* Title image */}
-      <img src={logoUrl} alt="The Secret Vote" style={styles.logoImg} loading="eager" />
+      <img
+        src={logoUrl}
+        alt="The Secret Vote"
+        className="logo"
+        loading="eager"
+      />
 
       {/* STACKED: Code Entry (top) → Create Poll → Create Group Idea */}
-      <div style={styles.column}>
+      <div className="col">
         {/* 1) Join with code */}
-        <div style={styles.cardJoin} aria-label="Join with a code">
-          <div style={styles.entryLabel}>Have a code? Jump in:</div>
+        <section className="card section" aria-label="Join with a code">
+          <h3 className="hdr">Have a code? Jump in:</h3>
 
-          <form onSubmit={goToRoom} style={styles.row}>
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="ENTER 6-CHAR CODE"
-              maxLength={6}
-              style={styles.input}
-              aria-label="Enter 6-character room code"
-              inputMode="text"
-              autoCapitalize="characters"
-              autoCorrect="off"
-            />
-            <button type="submit" style={styles.goBtn} disabled={loading}>
+          <form onSubmit={goToRoom} className="stack">
+            <label className="field" htmlFor="room-code">
+              <input
+                id="room-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="ENTER 6-CHAR CODE"
+                maxLength={6}
+                aria-label="Enter 6-character room code"
+                inputMode="text"
+                autoCapitalize="characters"
+                autoCorrect="off"
+              />
+            </label>
+
+            <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? "Checking…" : "Go"}
             </button>
+            <p className="help">Codes work for both collection and voting rooms.</p>
           </form>
-
-          <div style={styles.hintCenter}>
-            Codes work for both collection and voting rooms.
-          </div>
-        </div>
+        </section>
 
         {/* 2) Create a Poll */}
-        <div style={styles.cardAction}>
-          <div style={styles.cardTitle}>Create a Poll</div>
-          <p style={styles.cardText}>
+        <section className="card section">
+          <h3 className="hdr">Create a Poll</h3>
+          <p className="help">
             Make a quick, secret vote. Share the code, everyone joins and votes.
           </p>
-          <button style={styles.primaryBtn} onClick={goCreate}>
-            Create a Poll
-          </button>
-        </div>
+          <div className="stack">
+            <button className="btn btn-primary" onClick={goCreate}>
+              Create a Poll
+            </button>
+          </div>
+        </section>
 
         {/* 3) Create a Group Idea Poll */}
-        <div style={styles.cardAction}>
-          <div style={styles.cardTitle}>Create a Group Idea Poll</div>
-          <p style={styles.cardText}>
+        <section className="card section">
+          <h3 className="hdr">Create a Group Idea Poll</h3>
+          <p className="help">
             Collect options from the group first, then open voting when ready.
           </p>
-          <button style={styles.outlineBtn} onClick={goCreateCollect}>
-            Create a Group Idea Poll
-          </button>
-        </div>
+          <div className="stack">
+            <button className="btn btn-outline" onClick={goCreateCollect}>
+              Create a Group Idea Poll
+            </button>
+          </div>
+        </section>
       </div>
 
-      <p style={styles.hint}>Tip: Share your code anywhere—QR, text, or link.</p>
+      <p className="footer-tip">Tip: Share your code anywhere—QR, text, or link.</p>
+
+      {/* Theme styles (local to this page for now) */}
+      <style>{`
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+}
+
+*{box-sizing:border-box}
+html,body,#root,.wrap{height:100%}
+body{margin:0}
+
+.wrap{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+
+.logo{
+  width: min(360px, 86vw);
+  height: auto;
+  display:block;
+  border-radius:14px;
+  box-shadow: 0 0 12px rgba(255,140,0,.3);
+  margin: 0 0 12px;
+  filter: drop-shadow(0 0 8px rgba(255,140,0,.28));
+}
+
+.col{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap: 16px;
+  width: min(520px, 92vw);
+}
+
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;
+  padding:24px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 10px 24px rgba(0,0,0,.35),
+    0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 14px 32px rgba(0,0,0,.45),
+    0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
+
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+
+.field{
+  display:flex; align-items:center; gap:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.15));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  padding:14px 16px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.field input{
+  width:100%;
+  font-size:1.05rem;
+  background:transparent; border:none; outline:none;
+  color:var(--ink);
+  letter-spacing:.12em;
+  text-transform: uppercase;
+  text-align:center;
+}
+.field:focus-within{
+  border-color: rgba(255,140,0,.45);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.35),
+    0 0 0 3px rgba(255,140,0,.18);
+}
+
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow:
+    0 10px 18px rgba(255,140,0,.28),
+    0 2px 0 rgba(255,140,0,.9) inset,
+    0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow:
+    0 6px 12px rgba(255,140,0,.24),
+    0 1px 0 rgba(140,70,0,.9) inset,
+    0 0 0 rgba(255,255,255,0) inset;
+}
+
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.35),
+    0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
+
+.footer-tip{opacity:.75; font-size:.9rem; margin-top:10px}
+
+@media (max-width:600px){
+  .wrap{padding:22px 14px 60px}
+  .card{padding:18px}
+}
+      `}</style>
     </div>
   );
 }
-
-const ORANGE = "#ff8c00";
-
-const styles = {
-  wrap: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 12,
-    paddingTop: "max(16px, env(safe-area-inset-top))",
-    paddingBottom: "max(16px, env(safe-area-inset-bottom))",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-  },
-  logoImg: {
-    width: "min(360px, 86vw)",
-    height: "auto",
-    display: "block",
-    borderRadius: 14,
-    boxShadow: "0 0 12px rgba(255,140,0,.3)",
-    marginBottom: 16,
-    filter: "drop-shadow(0 0 8px rgba(255,140,0,.28))",
-  },
-  column: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 12,
-    width: "min(440px, 92vw)",
-  },
-  baseCard: {
-    width: "100%",
-    padding: 14,
-    borderRadius: 14,
-    display: "flex",
-    flexDirection: "column",
-    boxSizing: "border-box",
-  },
-  cardJoin: {
-    width: "100%",
-    padding: 14,
-    borderRadius: 14,
-    background: "rgba(255,255,255,0.06)",
-    boxShadow: "0 0 14px rgba(255,140,0,.28)",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  cardAction: {
-    width: "100%",
-    padding: 14,
-    borderRadius: 14,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 12px rgba(255,140,0,.22)",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 800,
-    letterSpacing: 0.3,
-    color: "#ffd9b3",
-    textShadow: "0 0 8px rgba(255,140,0,.3)",
-  },
-  cardText: { opacity: 0.88, lineHeight: 1.38, fontSize: 14 },
-  entryLabel: {
-    marginTop: 2,
-    marginBottom: 2,
-    fontWeight: 700,
-    fontSize: 14,
-    color: "#ffd9b3",
-    textShadow: "0 0 6px rgba(255,140,0,.28)",
-    textAlign: "center",
-  },
-  row: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  input: {
-    width: "100%",
-    padding: "14px 16px",
-    minHeight: 46,
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    outline: "none",
-    boxSizing: "border-box",
-    textAlign: "center",
-  },
-  goBtn: {
-    padding: "12px 16px",
-    minHeight: 46,
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    fontWeight: 800,
-    cursor: "pointer",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-  primaryBtn: {
-    padding: "14px 16px",
-    minHeight: 46,
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#080000ff",
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 0 8px rgba(255,140,0,.5)",
-  },
-  outlineBtn: {
-    padding: "14px 16px",
-    minHeight: 46,
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    fontWeight: 800,
-    cursor: "pointer",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-  hintCenter: { opacity: 0.85, fontSize: 12, textAlign: "center" },
-  hint: { opacity: 0.75, fontSize: 12, marginTop: 10 },
-};
