@@ -1,8 +1,7 @@
+// src/pages/Vote.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-
-const ORANGE = "#ff8c00";
 
 // shuffle helper (Fisher–Yates)
 function shuffle(arr) {
@@ -25,7 +24,7 @@ function fmtHM(ms) {
 
 export default function Vote() {
   const nav = useNavigate();
-  const { state } = useLocation();
+  const { state } = useLocation(); // reserved if you want to show “too slow / thanks” banners
   const { code: raw } = useParams();
   const code = (raw || "").toUpperCase();
 
@@ -61,15 +60,13 @@ export default function Vote() {
             const seen = new Set();
             const deduped = data.options.filter((opt) => {
               const norm = String(opt ?? "").trim().toLowerCase();
-              if (!norm) return false;         // drop blank entries
-              if (seen.has(norm)) return false; // keep first, drop later duplicates
+              if (!norm) return false;
+              if (seen.has(norm)) return false;
               seen.add(norm);
               return true;
             });
 
-            // store a shadow copy with deduped options for local use
-            const pollWithDedup = { ...data, options: deduped };
-            setPoll(pollWithDedup);
+            setPoll({ ...data, options: deduped });
 
             const shuf = shuffle(deduped);
             setOptionsOrder(shuf);
@@ -173,262 +170,310 @@ export default function Vote() {
 
   // ---- render ----
   if (loading) {
-    return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>Loading…</p>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Room {code}</h1>
+            <p className="help">Loading…</p>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
   if (!poll) {
-    return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>We couldn’t find this poll. Double-check the code.</p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Room {code}</h1>
+            <p className="help">We couldn’t find this poll. Double-check the code.</p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>Home</button>
+            </div>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
   if (status === "expired") {
-    return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <p style={{ ...styles.text, marginTop: 8 }}>
-          This page has gone the way of your New Year’s resolutions.
-        </p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">{poll.title}</h1>
+            <p className="help" style={{ marginTop: 8 }}>
+              This page has gone the way of your New Year’s resolutions.
+            </p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>Home</button>
+            </div>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
   if (submitted) {
-    return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Thanks for voting in “{poll.title}”</h1>
-        <p style={styles.text}>Sending you to the live results… ({redirectIn}s)</p>
-        <div style={{ marginTop: 12 }}>
-          <button style={styles.primaryBtn} onClick={() => nav(`/results/${code}`)}>
-            Skip to Results
-          </button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Thanks for voting in “{poll.title}”</h1>
+            <p className="help">Sending you to the live results… ({redirectIn}s)</p>
+            <div className="stack" style={{ marginTop: 8 }}>
+              <button className="btn btn-primary" onClick={() => nav(`/results/${code}`)}>
+                Skip to Results
+              </button>
+            </div>
+          </section>
         </div>
+        <ThemeStyles />
       </div>
     );
   }
 
-  return ScreenWrap(
-    <div style={styles.container}>
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <div style={styles.timer}>Ends in {fmtHM(timeLeft)}</div>
-      </div>
+  const submitDisabled = ranks.some((x) => x === null);
 
-      {/* Rank slots */}
-      <div style={styles.rankWrap}>
-        {ranks.map((val, i) => {
-          const isActive = i === activeRank;
-          const filled = val !== null;
-          return (
-            <div
-              key={i}
-              style={{
-                ...styles.rankRow,
-                ...(isActive ? styles.rankActive : {}),
-                ...(filled ? styles.rankFilled : {}),
-              }}
-              onClick={() => setActiveRank(i)}
-              title={
-                filled
-                  ? "Click to make this slot active (you can clear it)"
-                  : "Click to fill this slot"
-              }
-            >
-              <div style={styles.rankBadge}>{i + 1}</div>
-              <div style={styles.rankContent}>
-                {filled ? (
-                  <div style={styles.choiceChipLocked}>
-                    <span>{val}</span>
-                    <button
-                      style={styles.clearBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearRank(i);
-                      }}
-                      title="Clear this rank"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <span style={{ opacity: 0.6 }}>Pick option for rank #{i + 1}</span>
-                )}
-              </div>
+  return (
+    <div className="wrap">
+      <div className="col">
+        <section className="card section">
+          {/* Header */}
+          <div className="head-row">
+            <h1 className="hdr">{poll.title}</h1>
+            <div className="timer" title="Time remaining">
+              Ends in {fmtHM(timeLeft)}
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Available options */}
-      <div style={{ marginTop: 16 }}>
-        <div style={styles.grid}>
-          {available.map((opt) => (
-            <button
-              key={opt}
-              style={{ ...styles.choiceChip, ...(activeRank < N ? styles.glow : {}) }}
-              onClick={() => chooseOption(opt)}
-              title={`Set as #${activeRank + 1}`}
-            >
-              {opt}
+          {/* Rank slots */}
+          <div className="ranks">
+            {ranks.map((val, i) => {
+              const isActive = i === activeRank;
+              const filled = val !== null;
+              const rowClass = `rank-row${isActive ? " is-active" : ""}${filled ? " is-filled" : ""}`;
+              return (
+                <div
+                  key={i}
+                  className={rowClass}
+                  onClick={() => setActiveRank(i)}
+                  title={filled ? "Click to make this slot active (you can clear it)" : "Click to fill this slot"}
+                >
+                  <div className="rank-badge">{i + 1}</div>
+                  <div className="rank-content">
+                    {filled ? (
+                      <div className="chip-locked">
+                        <span className="chip-text">{val}</span>
+                        <button
+                          className="chip-clear"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearRank(i);
+                          }}
+                          title="Clear this rank"
+                          aria-label={`Clear rank ${i + 1}`}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="placeholder">Pick option for rank #{i + 1}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Available options */}
+          <div className="grid">
+            {available.map((opt) => (
+              <button
+                key={opt}
+                className={`chip${activeRank < N ? " glow" : ""}`}
+                onClick={() => chooseOption(opt)}
+                title={`Set as #${activeRank + 1}`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="actions">
+            <button className="btn btn-outline" onClick={() => nav(`/room/${code}`)}>
+              Back
             </button>
-          ))}
-        </div>
+            <button
+              className="btn btn-primary"
+              disabled={submitDisabled}
+              onClick={submitVote}
+              title={submitDisabled ? "Complete all ranks" : "Submit your vote"}
+            >
+              Submit Vote
+            </button>
+          </div>
+        </section>
       </div>
 
-      {/* Actions */}
-      <div style={styles.actionsRow}>
-        <button style={styles.secondaryBtn} onClick={() => nav(`/room/${code}`)}>Back</button>
-        <button
-          style={{ ...styles.primaryBtn, opacity: ranks.some((x) => x === null) ? 0.6 : 1 }}
-          disabled={ranks.some((x) => x === null)}
-          onClick={submitVote}
-          title={ranks.some((x) => x === null) ? "Complete all ranks" : "Submit your vote"}
-        >
-          Submit Vote
-        </button>
-      </div>
+      <ThemeStyles />
     </div>
   );
 }
 
-/* ---------- layout & styles (phone-friendly only) ---------- */
-function ScreenWrap(children) {
-  return <div style={styles.wrap}>{children}</div>;
+/** Inline theme so this page matches even without global index.css */
+function ThemeStyles() {
+  return (
+    <style>{`
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+  --container: min(720px, 94vw);
 }
 
-const styles = {
-  // outer shell
-  wrap: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-    padding: "clamp(8px, 2vw, 16px)",
-    overflowX: "hidden",
-  },
-  // card/container
-  container: {
-    width: "100%",
-    maxWidth: 720,
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    boxSizing: "border-box",
-    margin: "0 auto",
-  },
+*{box-sizing:border-box}
+html,body,#root{min-height:100%}
+body{margin:0; background: var(--bg);}
 
-  headerRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  title: {
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-    margin: 0,
-  },
-  timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
+.wrap{
+  min-height:100vh; min-height:100svh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+.col{ display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container); }
 
-  rankWrap: { display: "grid", gap: 10, marginTop: 16 },
-  rankRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: 10,
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid #222",
-    cursor: "pointer",
-    flexWrap: "wrap",
-  },
-  rankActive: { boxShadow: "0 0 12px rgba(255,140,0,.5)", borderColor: ORANGE },
-  rankFilled: { background: "rgba(255,255,255,0.05)" },
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px; padding:24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 14px 32px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
 
-  rankBadge: {
-    width: 36,
-    height: 36,
-    display: "grid",
-    placeItems: "center",
-    borderRadius: 999,
-    border: `1px solid ${ORANGE}`,
-    color: ORANGE,
-    fontWeight: 800,
-    flex: "0 0 auto",
-  },
-  rankContent: { flex: "1 1 200px", minWidth: 0 },
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+.head-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-    gap: 10,
-  },
-  choiceChip: {
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    cursor: "pointer",
-    transition: "transform .08s ease, box-shadow .08s ease",
-    textAlign: "center",
-  },
-  glow: { boxShadow: "0 0 16px rgba(255,140,0,.55)", borderColor: ORANGE },
+/* Timer badge */
+.timer{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.12), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffdda8; letter-spacing:.04em; font-weight:800; font-size:.95rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.05) inset;
+}
 
-  choiceChipLocked: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "10px 12px",
-    borderRadius: 999,
-    background: "#181f33",
-    border: `1px solid ${ORANGE}`,
-    boxShadow: "0 0 10px rgba(255,140,0,.45)",
-  },
-  clearBtn: {
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#bbb",
-    borderRadius: 8,
-    padding: "2px 6px",
-    cursor: "pointer",
-  },
+/* Rank list */
+.ranks{ display:grid; gap:12px; margin-top:8px; }
+.rank-row{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; cursor:pointer;
+  padding:12px; border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .08s ease;
+}
+.rank-row.is-active{
+  border-color: rgba(255,140,0,.55);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35), 0 0 0 3px rgba(255,140,0,.18);
+}
+.rank-row.is-filled{ background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.16)); }
 
-  primaryBtn: {
-    padding: "12px 18px",
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#000",
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 0 14px rgba(255,140,0,.8)",
-  },
-  secondaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
+.rank-badge{
+  width:36px; height:36px; display:grid; place-items:center; flex:0 0 auto;
+  border-radius:999px; border:1px solid rgba(255,140,0,.9); color:#ffb25a; font-weight:800;
+  box-shadow: 0 0 10px rgba(255,140,0,.35);
+}
+.rank-content{ flex:1 1 220px; min-width:0 }
+.placeholder{ opacity:.6 }
 
-  actionsRow: {
-    display: "flex",
-    gap: 12,
-    marginTop: 16,
-    flexWrap: "wrap",
-  },
+/* Choice chips (available options) */
+.grid{
+  display:grid; gap:12px; margin-top:16px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.chip{
+  padding:12px 14px; border-radius:12px; text-align:center; font-weight:700;
+  background: #121727; color: var(--ink);
+  border:1px solid #2d3345; cursor:pointer;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease;
+}
+.chip:hover{ transform: translateY(-1px); }
+.chip.glow{
+  border-color: rgba(255,140,0,.85);
+  box-shadow: 0 8px 18px rgba(255,140,0,.25), 0 0 8px rgba(255,140,0,.35) inset;
+}
 
-  text: { opacity: 0.9 },
-};
+/* Selected chip in rank row */
+.chip-locked{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 12px; border-radius:999px;
+  background: #181f33; color: var(--ink);
+  border:1px solid rgba(255,140,0,.85);
+  box-shadow: 0 0 12px rgba(255,140,0,.35);
+}
+.chip-text{ max-width:60ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chip-clear{
+  border:1px solid #344; background:transparent; color:#cfd3df;
+  border-radius:8px; padding:2px 6px; cursor:pointer;
+}
+.chip-clear:hover{ filter:brightness(1.1); }
+
+/* Actions */
+.actions{
+  display:flex; gap:12px; margin-top:16px; flex-wrap:wrap;
+}
+
+/* Buttons */
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 12px rgba(255,140,0,.24), 0 1px 0 rgba(140,70,0,.9) inset, 0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
+
+@media (max-width:600px){
+  .card{padding:18px}
+}
+    `}</style>
+  );
+}
