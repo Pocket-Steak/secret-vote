@@ -3,8 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-const ORANGE = "#ff8c00";
-
 export default function CollectHost() {
   const nav = useNavigate();
   const { code: raw } = useParams();
@@ -47,17 +45,16 @@ export default function CollectHost() {
     };
   }, [code]);
 
-  const statusBadge = useMemo(() => {
-    const s = poll?.status || "collecting";
-    return s;
-  }, [poll?.status]);
+  const statusBadge = useMemo(
+    () => (poll?.status ? String(poll.status) : "collecting"),
+    [poll?.status]
+  );
 
   async function verifyPin() {
     setErrorMsg("");
     setVerifying(true);
     try {
-      // IMPORTANT: use the parameter names the SQL function expects
-      //   collect_verify_pin(_code text, _pin text) -> boolean
+      // SQL: collect_verify_pin(_code text, _pin text) -> boolean
       const { data, error } = await supabase.rpc("collect_verify_pin", {
         _code: code,
         _pin: pin,
@@ -67,9 +64,8 @@ export default function CollectHost() {
         setErrorMsg("Verification failed.");
         setVerified(false);
       } else {
-        if (data === true) {
-          setVerified(true);
-        } else {
+        if (data === true) setVerified(true);
+        else {
           setVerified(false);
           setErrorMsg("Incorrect PIN.");
         }
@@ -88,8 +84,8 @@ export default function CollectHost() {
     setErrorMsg("");
     setActing(true);
     try {
-      // SQL function: collect_finalize_to_voting(_code text, _pin text) -> text (hint/message)
-      const { data, error } = await supabase.rpc("collect_finalize_to_voting", {
+      // SQL: collect_finalize_to_voting(_code text, _pin text) -> text
+      const { error } = await supabase.rpc("collect_finalize_to_voting", {
         _code: code,
         _pin: pin,
       });
@@ -97,7 +93,6 @@ export default function CollectHost() {
         console.error(error);
         setErrorMsg(error.message || "Could not open voting.");
       } else {
-        // refresh poll after transition
         await refresh();
       }
     } catch (e) {
@@ -114,211 +109,284 @@ export default function CollectHost() {
       .select("*")
       .eq("code", code)
       .maybeSingle();
-    if (error) {
-      console.error(error);
-      return;
-    }
-    setPoll(data);
+    if (!error) setPoll(data);
+    else console.error(error);
   }
 
   if (loading) {
-    return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Host Options</h1>
-        <p style={styles.text}>Loading…</p>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Host Options</h1>
+            <p className="help">Loading…</p>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
   if (!poll) {
-    return ScreenWrap(
-      <div style={styles.container}>
-        <h1 style={styles.title}>Host Options</h1>
-        <p style={styles.text}>We couldn’t find a collection with code {code}.</p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Host Options</h1>
+            <p className="help">We couldn’t find a collection with code {code}.</p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>
+                Home
+              </button>
+            </div>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
 
-  return ScreenWrap(
-    <div style={styles.container}>
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>Host Options — {poll.title || "Untitled"}</h1>
-        <span style={styles.badge}>Code: {code}</span>
-      </div>
+  const pinValid = /^\d{4,}$/.test(pin.trim());
 
-      <div style={styles.infoCard}>
-        <div>
-          <div style={styles.label}>Status:</div>
-          <div style={styles.value}>{statusBadge}</div>
-        </div>
-        <div>
-          <div style={styles.label}>Max per user:</div>
-          <div style={styles.value}>{poll.max_per_user ?? "-"}</div>
-        </div>
-        <div>
-          <div style={styles.label}>Target participants:</div>
-          <div style={styles.value}>{poll.target_participants_hint ?? "-"}</div>
-        </div>
-      </div>
+  return (
+    <div className="wrap">
+      <div className="col">
+        <section className="card section">
+          {/* Header */}
+          <div className="head-row">
+            <h1 className="hdr">Host Options — {poll.title || "Untitled"}</h1>
+            <span className="badge">Code: {code}</span>
+          </div>
 
-      {!verified ? (
-        <div style={styles.panel}>
-          <div style={styles.label}>Enter Host PIN</div>
-          <input
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="4+ digits"
-            inputMode="numeric"
-            style={styles.input}
-          />
-          <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <button style={styles.primaryBtn} onClick={verifyPin} disabled={verifying || !pin}>
-              {verifying ? "Verifying…" : "Verify"}
-            </button>
-            <button style={styles.linkBtn} onClick={() => nav(`/collect/${code}`)}>
-              Back
-            </button>
+          {/* Info */}
+          <div className="info-grid">
+            <div className="info">
+              <div className="info-label">Status</div>
+              <div className="info-value">{statusBadge}</div>
+            </div>
+            <div className="info">
+              <div className="info-label">Max per user</div>
+              <div className="info-value">{poll.max_per_user ?? "-"}</div>
+            </div>
+            <div className="info">
+              <div className="info-label">Target participants</div>
+              <div className="info-value">{poll.target_participants_hint ?? "-"}</div>
+            </div>
           </div>
-          {errorMsg && <div style={styles.err}>{errorMsg}</div>}
-        </div>
-      ) : (
-        <div style={styles.panel}>
-          <div style={styles.good}>PIN verified ✔</div>
-          <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-            <button
-              style={styles.primaryBtn}
-              onClick={openVoting}
-              disabled={acting || poll.status !== "collecting"}
-              title={poll.status !== "collecting" ? "Already finalized" : "Open voting"}
-            >
-              {acting ? "Working…" : "Open Voting"}
-            </button>
-            <button style={styles.secondaryBtn} onClick={refresh}>
-              Refresh
-            </button>
-            <button style={styles.linkBtn} onClick={() => nav(`/collect/${code}`)}>
-              Back to Landing
-            </button>
-          </div>
-          {errorMsg && <div style={styles.err}>{errorMsg}</div>}
-          {poll.status === "voting" && (
-            <div style={{ marginTop: 10 }}>
-              Voting is open. Share the voting code with participants:
-              <div style={{ ...styles.badge, marginTop: 6 }}>Vote Code: {code}</div>
+
+          {/* Verify / Actions */}
+          {!verified ? (
+            <div className="panel">
+              <label className="label">Enter Host PIN</label>
+              <label className={`field ${pin && !pinValid ? "invalid" : ""}`}>
+                <input
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/[^\d]/g, ""))}
+                  placeholder="4+ digits"
+                  inputMode="numeric"
+                  maxLength={12}
+                />
+              </label>
+
+              <div className="stack">
+                <button
+                  className="btn btn-primary"
+                  onClick={verifyPin}
+                  disabled={verifying || !pinValid}
+                >
+                  {verifying ? "Verifying…" : "Verify"}
+                </button>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => nav(`/collect/${code}`)}
+                >
+                  Back
+                </button>
+              </div>
+
+              {errorMsg && <p className="error">{errorMsg}</p>}
+            </div>
+          ) : (
+            <div className="panel">
+              <p className="good">PIN verified ✔</p>
+
+              <div className="stack">
+                <button
+                  className="btn btn-primary"
+                  onClick={openVoting}
+                  disabled={acting || poll.status !== "collecting"}
+                  title={
+                    poll.status !== "collecting" ? "Already finalized" : "Open voting"
+                  }
+                >
+                  {acting ? "Working…" : "Open Voting"}
+                </button>
+                <button className="btn btn-outline" onClick={refresh}>
+                  Refresh
+                </button>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => nav(`/collect/${code}`)}
+                >
+                  Back to Landing
+                </button>
+              </div>
+
+              {errorMsg && <p className="error">{errorMsg}</p>}
+
+              {poll.status === "voting" && (
+                <p className="note" style={{ marginTop: 10 }}>
+                  Voting is open. Share the voting code with participants:
+                  <span className="badge" style={{ marginLeft: 8 }}>Vote Code: {code}</span>
+                </p>
+              )}
             </div>
           )}
-        </div>
-      )}
+        </section>
+      </div>
+
+      <ThemeStyles />
     </div>
   );
 }
 
-/* ---------- helpers/styles ---------- */
-function ScreenWrap(children) {
-  return <div style={styles.wrap}>{children}</div>;
+/** Inline theme so this page matches even without global index.css */
+function ThemeStyles() {
+  return (
+    <style>{`
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+  --container: min(520px, 92vw);
 }
 
-const styles = {
-  wrap: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-    padding: "clamp(8px, 2vw, 16px)",
-    overflowX: "hidden",
-  },
-  container: {
-    width: "100%",
-    maxWidth: 720,
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    boxSizing: "border-box",
-    margin: "0 auto",
-  },
-  headerRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  title: {
-    margin: 0,
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-  },
-  badge: {
-    padding: "6px 12px",
-    borderRadius: 999,
-    border: "1px solid #333",
-    background: "#121727",
-    letterSpacing: 1,
-    fontSize: 12,
-  },
-  infoCard: {
-    marginTop: 14,
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-    gap: 10,
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid #222",
-  },
-  label: { fontSize: 12, opacity: 0.8, marginBottom: 4 },
-  value: { fontWeight: 700 },
-  panel: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid #222",
-  },
-  input: {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  primaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#080000ff",
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 0 12px rgba(255,140,0,.75)",
-  },
-  secondaryBtn: {
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
-  linkBtn: {
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#aaa",
-    cursor: "pointer",
-  },
-  err: { marginTop: 10, color: "#ffb4b4" },
-  good: {
-    fontWeight: 700,
-    color: "#ffd9b3",
-    textShadow: "0 0 8px rgba(255,140,0,.6)",
-  },
-};
+*{box-sizing:border-box}
+html,body,#root{min-height:100%}
+body{margin:0; background: var(--bg);}
+
+.wrap{
+  min-height:100vh; min-height:100svh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+
+.col{ display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container); }
+
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px; padding:24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 14px 32px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
+
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+
+/* Header badges */
+.head-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.badge{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.10), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffb25a; letter-spacing:.06em; font-weight:700; font-size:.9rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+
+/* Info grid */
+.info-grid{
+  display:grid; gap:12px; margin:12px 0;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.info{
+  padding:12px; border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.14));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.info-label{ color:var(--muted); font-size:.9rem; margin-bottom:4px; }
+.info-value{ font-weight:800; color:var(--ink); }
+
+/* Panel for verify/actions */
+.panel{
+  margin-top: 8px; padding:14px; border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,140,0,.25);
+  box-shadow: 0 0 14px rgba(255,140,0,.10) inset;
+}
+
+.label{ font-weight:700; margin: 4px 0; }
+
+/* Field shell */
+.field{
+  display:flex; align-items:center; gap:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.15));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px; padding:14px 16px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.field:focus-within{
+  border-color: rgba(255,140,0,.45);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35), 0 0 0 3px rgba(255,140,0,.18);
+}
+.field.invalid{ border-color:#c0392b; }
+.field input{
+  width:100%; background:transparent; border:none; outline:none;
+  color:var(--ink); font-size:1.05rem; letter-spacing:.02em;
+}
+
+/* Buttons */
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 12px rgba(255,140,0,.24), 0 1px 0 rgba(140,70,0,.9) inset, 0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
+
+.note{
+  margin:10px 0 0; padding:10px; border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.10));
+  border:1px solid rgba(255,140,0,.22);
+}
+.error{ color:#ff6b6b; font-size:.95rem; margin-top:8px; }
+.good{ color:#ffdda8; font-weight:800; text-shadow:0 0 8px rgba(255,140,0,.5) }
+
+@media (max-width:600px){ .card{padding:18px} }
+    `}</style>
+  );
+}
