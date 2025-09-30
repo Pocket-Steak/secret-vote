@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 
 const ORANGE = "#ff8c00";
 
+// 6-char code generator (avoids confusing chars)
 function genCode() {
   const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let s = "";
@@ -15,11 +16,12 @@ function genCode() {
 export default function CreateCollect() {
   const nav = useNavigate();
 
+  // form state
   const [title, setTitle] = useState("");
-  const [durationMin, setDurationMin] = useState(120);
+  const [durationMin, setDurationMin] = useState(120); // default 2h
   const [maxPerUser, setMaxPerUser] = useState(3);
   const [targetHint, setTargetHint] = useState("");
-  const [hostPin, setHostPin] = useState("");     // now REQUIRED
+  const [hostPin, setHostPin] = useState(""); // optional
   const [submitting, setSubmitting] = useState(false);
 
   const durations = useMemo(
@@ -42,10 +44,10 @@ export default function CreateCollect() {
       return;
     }
 
-    // 🔒 Host PIN is REQUIRED and must be 4+ digits
+    // PIN optional, but if present must be 4+ digits
     const pin = hostPin.trim();
-    if (!/^\d{4,}$/.test(pin)) {
-      alert("Host PIN is required and must be at least 4 digits (numbers only).");
+    if (pin && !/^\d{4,}$/.test(pin)) {
+      alert("PIN must be at least 4 digits (numbers only).");
       return;
     }
 
@@ -63,17 +65,20 @@ export default function CreateCollect() {
     setSubmitting(true);
     try {
       const code = genCode();
+
+      // Make sure we send real numbers
       const duration = Number(durationMin);
       const maxAdded = Number(maxPerUser);
 
+      // ✅ Correct, minimal payload (matches the normalized DB)
       const payload = {
         code,
         title: t,
-        duration_minutes: duration,
-        max_per_user: maxAdded,
+        duration_minutes: duration,     // one duration field
+        max_per_user: maxAdded,         // one per-user limit field
         target_participants_hint: target, // nullable
-        host_pin: pin,                     // ✅ REQUIRED (no null)
-        status: "collecting",
+        host_pin: pin || null,            // nullable
+        status: "collecting",             // explicit state
         created_at: new Date().toISOString(),
       };
 
@@ -93,8 +98,6 @@ export default function CreateCollect() {
       setSubmitting(false);
     }
   }
-
-  const pinValid = /^\d{4,}$/.test(hostPin.trim());
 
   return (
     <div style={s.wrap}>
@@ -155,32 +158,22 @@ export default function CreateCollect() {
           style={s.input}
         />
 
-        {/* Host PIN (REQUIRED) */}
-        <label style={s.label}>
-          Host PIN <span style={{ color: ORANGE }}>(required, 4+ digits)</span>
-        </label>
+        {/* Host PIN (optional) */}
+        <label style={s.label}>Host PIN (optional)</label>
         <input
           value={hostPin}
-          onChange={(e) => setHostPin(e.target.value.replace(/[^\d]/g, ""))}
-          placeholder="Enter a PIN to control opening voting"
+          onChange={(e) => setHostPin(e.target.value)}
+          placeholder="Set a PIN to open voting later"
           inputMode="numeric"
-          style={{
-            ...s.input,
-            borderColor: hostPin.length === 0 || pinValid ? "#333" : "#c0392b",
-          }}
+          style={s.input}
           maxLength={12}
         />
-        {hostPin && !pinValid && (
-          <div style={{ color: "#ff6b6b", marginTop: 6, fontSize: 12 }}>
-            PIN must be at least 4 digits.
-          </div>
-        )}
 
         {/* Actions */}
         <div style={s.actions}>
           <button
-            style={{ ...s.primaryBtn, opacity: submitting || !pinValid ? 0.6 : 1 }}
-            disabled={submitting || !pinValid}
+            style={{ ...s.primaryBtn, opacity: submitting ? 0.6 : 1 }}
+            disabled={submitting}
             onClick={handleCreate}
           >
             {submitting ? "Creating…" : "Create Collection Room"}
@@ -194,7 +187,7 @@ export default function CreateCollect() {
   );
 }
 
-/* ---------- styles (unchanged) ---------- */
+/* ---------- styles ---------- */
 const s = {
   wrap: {
     minHeight: "100vh",
