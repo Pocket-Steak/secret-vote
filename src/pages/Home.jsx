@@ -63,13 +63,16 @@ export default function Home() {
 
   return (
     <div className="wrap">
-      {/* Title image */}
-      <img
-        src={logoUrl}
-        alt="The Secret Vote"
-        className="logo"
-        loading="eager"
-      />
+      {/* Logo now in a glossy card to match the UI */}
+      <div className="card logo-card">
+        <img
+          src={logoUrl}
+          alt="The Secret Vote"
+          className="logo-img"
+          loading="eager"
+        />
+        <div className="logo-shine" aria-hidden="true" />
+      </div>
 
       {/* STACKED: Code Entry (top) → Create Poll → Create Group Idea */}
       <div className="col">
@@ -167,16 +170,78 @@ body{
   color:var(--ink);
 }
 
-.logo{
-  width: min(360px, 86vw);
-  height: auto;
-  display:block;
-  border-radius:14px;
-  box-shadow: 0 0 12px rgba(255,140,0,.3);
-  margin: 0 0 12px;
-  filter: drop-shadow(0 0 8px rgba(255,140,0,.28));
+/* ----- Modern glossy logo card ----- */
+.logo-card{
+  position: relative;
+  width: min(520px, 92vw);
+  padding: 18px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.16)),
+    var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 22px 40px rgba(0,0,0,.55),
+    0 0 64px rgba(255,140,0,.10);
+  overflow: hidden;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, filter .18s ease;
+}
+.logo-card:hover{
+  transform: translateY(-2px);
+  border-color: rgba(255,140,0,.22);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 28px 56px rgba(0,0,0,.6),
+    0 0 84px rgba(255,140,0,.16);
+  filter: brightness(1.02);
+}
+/* Gradient border accent */
+.logo-card::before{
+  content:"";
+  position:absolute; inset:0; border-radius:inherit; padding:1px;
+  background: linear-gradient(135deg, rgba(255,140,0,.65), rgba(255,255,255,.12) 35%, rgba(255,140,0,0) 65%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events:none;
+}
+/* Ambient top glow */
+.logo-card::after{
+  content:"";
+  position:absolute; inset:-30px -30px auto -30px; height:60%;
+  border-radius:inherit;
+  background: radial-gradient(70% 55% at 50% 0%, rgba(255,140,0,.10), transparent 70%);
+  pointer-events:none;
 }
 
+.logo-img{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius: 14px;
+  background:#0c0f16;
+  /* remove the old heavy glow; the card supplies the effect */
+  filter:none;
+  position:relative;
+  z-index:1;
+}
+
+/* Subtle animated sheen */
+.logo-shine{
+  position:absolute; inset:0; border-radius:inherit;
+  background: linear-gradient(115deg, transparent 0%,
+            rgba(255,255,255,.08) 30%, rgba(255,255,255,.02) 45%, transparent 65%);
+  transform: translateX(-120%);
+  animation: sheen 3.8s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes sheen{
+  0%{ transform: translateX(-120%) }
+  60%{ transform: translateX(120%) }
+  100%{ transform: translateX(120%) }
+}
+
+/* ----- Rest of the shared UI styles ----- */
 .col{
   display:flex;
   flex-direction:column;
