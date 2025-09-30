@@ -1,8 +1,7 @@
+// src/pages/Create.jsx
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-
-const ORANGE = "#ff8c00";
 
 export default function Create() {
   const nav = useNavigate();
@@ -40,9 +39,8 @@ export default function Create() {
     setDragIndex(index);
     e.dataTransfer.effectAllowed = "move";
   }
-  function onDragOver(e, index) {
+  function onDragOver(e) {
     e.preventDefault();
-    if (dragIndex === null || dragIndex === index) return;
   }
   function onDrop(e, index) {
     e.preventDefault();
@@ -141,237 +139,261 @@ export default function Create() {
     trimmed.some((t) => !t); // all visible fields must be non-empty
 
   return (
-    <div style={styles.wrap}>
-      <div style={styles.container}>
-        <h1 style={styles.title}>Create a Poll</h1>
+    <div className="wrap">
+      <div className="col">
+        <section className="card section">
+          <h1 className="hdr">Create a Poll</h1>
 
-        {/* Title */}
-        <label style={styles.label}>
-          Poll Title <span style={styles.sub}>(max 60 chars, plain text)</span>
-        </label>
-        <input
-          style={styles.input}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Where should we eat dinner?"
-          maxLength={60}
-        />
+          {/* Title */}
+          <label className="label">
+            Poll Title <span className="sub">(max 60 chars, plain text)</span>
+          </label>
+          <label className="field">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Where should we eat dinner?"
+              maxLength={60}
+            />
+          </label>
 
-        {/* Options */}
-        <label style={{ ...styles.label, marginTop: 16 }}>
-          Options <span style={styles.sub}>(2–10, max 30 chars, no duplicates)</span>
-        </label>
+          {/* Options */}
+          <label className="label" style={{ marginTop: 6 }}>
+            Options <span className="sub">(2–10, max 30 chars, no duplicates)</span>
+          </label>
 
-        <div style={styles.list}>
-          {options.map((val, i) => (
-            <div
-              key={i}
-              style={styles.optionRow}
-              draggable
-              onDragStart={(e) => onDragStart(e, i)}
-              onDragOver={(e) => onDragOver(e, i)}
-              onDrop={(e) => onDrop(e, i)}
-              title="Drag to reorder"
-            >
-              <div style={styles.dragHandle}>::</div>
-              <input
-                style={styles.optionInput}
-                value={val}
-                onChange={(e) => setOptionAt(i, e.target.value)}
-                placeholder={`Option ${i + 1}`}
-                maxLength={30}
-              />
-              <button
-                type="button"
-                onClick={() => removeOption(i)}
-                style={{ ...styles.iconBtn, opacity: options.length <= 2 ? 0.4 : 1 }}
-                disabled={options.length <= 2}
-                title={options.length <= 2 ? "Need at least 2 options" : "Remove option"}
+          <div className="list">
+            {options.map((val, i) => (
+              <div
+                key={i}
+                className="option-row"
+                draggable
+                onDragStart={(e) => onDragStart(e, i)}
+                onDragOver={onDragOver}
+                onDrop={(e) => onDrop(e, i)}
+                title="Drag to reorder"
               >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
+                <div className="drag-handle" aria-hidden="true">⋮⋮</div>
+                <input
+                  className="option-input"
+                  value={val}
+                  onChange={(e) => setOptionAt(i, e.target.value)}
+                  placeholder={`Option ${i + 1}`}
+                  maxLength={30}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeOption(i)}
+                  className="icon-btn"
+                  disabled={options.length <= 2}
+                  title={options.length <= 2 ? "Need at least 2 options" : "Remove option"}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={addOption}
-            style={{ ...styles.ghostBtn, opacity: canAddMore ? 1 : 0.4 }}
-            disabled={!canAddMore}
-          >
-            + Add option
-          </button>
-        </div>
+          <div className="actions" style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={addOption}
+              className={`btn ${canAddMore ? "btn-outline" : ""}`}
+              disabled={!canAddMore}
+              title={canAddMore ? "Add another option" : "Limit reached (10)"}
+            >
+              + Add option
+            </button>
+          </div>
 
-        {/* Duration */}
-        <label style={{ ...styles.label, marginTop: 16 }}>
-          Duration <span style={styles.sub}>(everyone sees a countdown)</span>
-        </label>
-        <select
-          style={styles.select}
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-        >
-          <option value="30">30 minutes</option>
-          <option value="120">2 hours</option>
-          <option value="1440">24 hours</option>
-        </select>
+          {/* Duration */}
+          <label className="label" style={{ marginTop: 6 }}>
+            Duration <span className="sub">(everyone sees a countdown)</span>
+          </label>
+          <div className="field select-field">
+            <select value={duration} onChange={(e) => setDuration(e.target.value)}>
+              <option value="30">30 minutes</option>
+              <option value="120">2 hours</option>
+              <option value="1440">24 hours</option>
+            </select>
+            <span className="chev" aria-hidden="true">▾</span>
+          </div>
 
-        {/* Notes */}
-        <div style={styles.warnBox}>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li>No emojis allowed; plain text only.</li>
-            <li>Poll locks on launch; voters must rank all choices.</li>
-            <li>Share the six-character room code with voters.</li>
-          </ul>
-        </div>
+          {/* Notes */}
+          <div className="note" style={{ marginTop: 10 }}>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li>No emojis allowed; plain text only.</li>
+              <li>Poll locks on launch; voters must rank all choices.</li>
+              <li>Share the six-character room code with voters.</li>
+            </ul>
+          </div>
 
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => nav("/")} style={styles.secondaryBtn}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={createPoll}
-            style={{ ...styles.primaryBtn, opacity: disableCreate ? 0.6 : 1 }}
-            disabled={disableCreate}
-            title={disableCreate ? "Complete all fields and fix validation" : "Create & Launch"}
-          >
-            Create & Launch
-          </button>
-        </div>
+          {/* Actions */}
+          <div className="actions">
+            <button type="button" className="btn btn-outline" onClick={() => nav("/")}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={createPoll}
+              disabled={disableCreate}
+              title={disableCreate ? "Complete all fields and fix validation" : "Create & Launch"}
+            >
+              Create & Launch
+            </button>
+          </div>
+        </section>
       </div>
+
+      <ThemeStyles />
     </div>
   );
 }
 
-const styles = {
-  wrap: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-    padding: "clamp(8px, 2vw, 16px)",
-    overflowX: "hidden", // kill stray horizontal scroll on mobile
-  },
-  container: {
-    width: "100%",
-    maxWidth: 720,
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    boxSizing: "border-box",
-    margin: "0 auto",
-  },
-  title: { fontSize: "clamp(22px, 4.5vw, 28px)", marginBottom: 10, textShadow: "0 0 12px rgba(255,140,0,.8)" },
+/** Inline theme so this page matches even without global index.css */
+function ThemeStyles() {
+  return (
+    <style>{`
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+  --container: min(720px, 94vw);
+}
 
-  label: { display: "block", fontWeight: 700, marginBottom: 6, fontSize: "clamp(14px, 3.6vw, 18px)" },
-  sub: { fontWeight: 400, opacity: 0.7 },
+*{box-sizing:border-box}
+html,body,#root{min-height:100%}
+body{margin:0; background: var(--bg);}
 
-  input: {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    outline: "none",
-    boxSizing: "border-box",
-  },
+.wrap{
+  min-height:100vh; min-height:100svh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+.col{ display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container); }
 
-  list: { display: "grid", gap: 8, marginTop: 8 },
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px; padding:24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 14px 32px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
 
-  optionRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: 8,
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid #222",
-  },
-  dragHandle: {
-    cursor: "grab",
-    userSelect: "none",
-    padding: "0 8px",
-    color: ORANGE,
-    textShadow: "0 0 8px rgba(255,140,0,.7)",
-  },
-  optionInput: {
-    flex: 1,
-    width: "100%",
-    minWidth: 0, // prevents overflow in flex rows on iOS
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid #333",
-    background: "#0e1424",
-    color: "#fff",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  iconBtn: {
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#bbb",
-    borderRadius: 10,
-    padding: "8px 10px",
-    cursor: "pointer",
-    flex: "0 0 auto",
-  },
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
 
-  ghostBtn: {
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    borderRadius: 12,
-    padding: "10px 14px",
-    cursor: "pointer",
-  },
+.label{font-weight:800; margin-top:4px}
+.sub{font-weight:600; opacity:.7}
 
-  select: {
-    width: "100%",          // full width on mobile
-    maxWidth: 340,          // but don’t get huge on desktop
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    outline: "none",
-    boxSizing: "border-box",
-  },
+/* Field shell shared with inputs & selects */
+.field{
+  display:flex; align-items:center; gap:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.15));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px; padding:14px 16px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.field:focus-within{
+  border-color: rgba(255,140,0,.45);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35), 0 0 0 3px rgba(255,140,0,.18);
+}
+.field input{
+  width:100%; background:transparent; border:none; outline:none;
+  color:var(--ink); font-size:1.05rem; letter-spacing:.02em;
+}
 
-  warnBox: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(255,140,0,.07)",
-    border: `1px solid rgba(255,140,0,.4)`,
-    color: "#ffd9b3",
-  },
+/* Selects sit inside the field shell too */
+.select-field{ position:relative; }
+.select-field select{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  width:100%; background:transparent; border:none; outline:none;
+  color:var(--ink); font-size:1.05rem; line-height:1.2;
+}
+.select-field .chev{
+  position:absolute; right:12px; top:50%; transform:translateY(-50%); opacity:.8; pointer-events:none;
+}
 
-  primaryBtn: {
-    padding: "12px 18px",
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#000",
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 0 14px rgba(255,140,0,.8)",
-    flex: "0 0 auto",
-  },
-  secondaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-    flex: "0 0 auto",
-  },
-};
+/* Options list */
+.list{ display:grid; gap:10px; margin-top:8px; }
+.option-row{
+  display:flex; align-items:center; gap:10px; min-width:0;
+  padding:10px; border-radius:14px; cursor:grab;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.drag-handle{
+  padding:0 8px; user-select:none; font-weight:900;
+  color:#ffb25a; text-shadow:0 0 8px rgba(255,140,0,.45);
+}
+.option-input{
+  flex:1; min-width:0;
+  background:transparent; border:none; outline:none; color:var(--ink); font-size:1rem;
+}
+.icon-btn{
+  border:1px solid rgba(255,255,255,.18);
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.22));
+  color:#c9c9d6;
+  border-radius:10px; padding:8px 10px; cursor:pointer;
+}
+.icon-btn[disabled]{ opacity:.45; cursor:not-allowed }
+
+/* Buttons */
+.actions{ display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 12px rgba(255,140,0,.24), 0 1px 0 rgba(140,70,0,.9) inset, 0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
+
+/* Notes / warnings */
+.note{
+  padding:12px; border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,140,0,.25);
+  box-shadow: 0 0 14px rgba(255,140,0,.10) inset;
+  color:#ffdda8; font-weight:600;
+}
+
+@media (max-width:600px){ .card{padding:18px} }
+    `}</style>
+  );
+}
