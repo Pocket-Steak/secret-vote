@@ -3,8 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-const ORANGE = "#ff8c00";
-
 /* --- small helper for minutes-only time --- */
 function fmtHM(ms) {
   if (ms <= 0) return "0h 0m";
@@ -16,7 +14,6 @@ function fmtHM(ms) {
 
 /* --- a static “fancy” crown (SVG gradient + subtle glow) --- */
 function FancyCrown({ size = 22 }) {
-  // unique ids so multiple crowns don't clash
   const gradId = "crownGrad_" + Math.random().toString(36).slice(2);
   const glowId = "crownGlow_" + Math.random().toString(36).slice(2);
 
@@ -197,211 +194,270 @@ export default function Results() {
 
   // ---- renders ----
   if (loading) {
-    return ScreenWrap(
-      <div style={styles.card}>
-        <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>Loading…</p>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Room {code}</h1>
+            <p className="help">Loading…</p>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
   if (!poll) {
-    return ScreenWrap(
-      <div style={styles.card}>
-        <h1 style={styles.title}>Room {code}</h1>
-        <p style={styles.text}>We couldn’t find this poll. Double-check the code.</p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Room {code}</h1>
+            <p className="help">We couldn’t find this poll. Double-check the code.</p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>
+                Home
+              </button>
+            </div>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
   if (status === "expired") {
-    return ScreenWrap(
-      <div style={styles.card}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <p style={{ ...styles.text, marginTop: 8 }}>
-          This page has gone the way of your New Year’s resolutions.
-        </p>
-        <button style={styles.secondaryBtn} onClick={() => nav("/")}>Home</button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">{poll.title}</h1>
+            <p className="help" style={{ marginTop: 8 }}>
+              This page has gone the way of your New Year’s resolutions.
+            </p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>
+                Home
+              </button>
+            </div>
+          </section>
+        </div>
+        <ThemeStyles />
       </div>
     );
   }
 
-  return ScreenWrap(
-    <div style={styles.card}>
-      {state?.tooSlow && <Banner text="Too slow — voting’s over, but here are the results." />}
-      {state?.thanks && <Banner text="Thanks for voting! You’re viewing live results." />}
+  return (
+    <div className="wrap">
+      <div className="col">
+        <section className="card section">
+          {/* Banners */}
+          {state?.tooSlow && <div className="note">Too slow — voting’s over, but here are the results.</div>}
+          {state?.thanks && <div className="note">Thanks for voting! You’re viewing live results.</div>}
 
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>{poll.title}</h1>
-        <div style={styles.timer}>
-          {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
-        </div>
-      </div>
-      <div style={styles.subRow}>
-        <span style={styles.badge}>Code: {code}</span>
-        <span style={styles.badge}>Ballots: {ballotsCount}</span>
-      </div>
-
-      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-        {totals.map((row) => {
-          const isWinner = row.rank === 1;
-          return (
-            <div
-              key={row.option}
-              style={{
-                ...styles.resultRow,
-                ...(isWinner ? styles.firstPlace : {}),
-              }}
-            >
-              <div style={styles.rankCell}>
-                <span style={styles.rankNum}>{row.rank}</span>
-                {isWinner && <FancyCrown size={22} />}
-                {row.tie && <span style={styles.tieBadge}>TIE</span>}
-              </div>
-              <div style={{ ...styles.optionCell, ...(isWinner ? styles.optionWinner : {}) }}>
-                {row.option}
-              </div>
-              <div style={styles.pointsCell}>{row.points} pts</div>
+          {/* Header */}
+          <div className="head-row">
+            <h1 className="hdr">{poll.title}</h1>
+            <div className="timer">
+              {status === "open" ? <>Ends in {fmtHM(timeLeft)}</> : <>Voting Closed</>}
             </div>
-          );
-        })}
+          </div>
+
+          {/* Sub badges */}
+          <div className="badges-row">
+            <span className="badge">Code: {code}</span>
+            <span className="badge">Ballots: {ballotsCount}</span>
+          </div>
+
+          {/* Results list */}
+          <div className="results">
+            {totals.map((row) => {
+              const isWinner = row.rank === 1;
+              return (
+                <div
+                  key={row.option}
+                  className={`result-row${isWinner ? " first" : ""}`}
+                >
+                  <div className="rank-cell">
+                    <span className="rank-num">{row.rank}</span>
+                    {isWinner && <FancyCrown size={22} />}
+                    {row.tie && <span className="tie-badge">TIE</span>}
+                  </div>
+                  <div className={`option-cell${isWinner ? " winner" : ""}`}>
+                    {row.option}
+                  </div>
+                  <div className="points-cell">{row.points} pts</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="actions">
+            <button className="btn btn-outline" onClick={() => nav(`/room/${code}`)}>
+              Back to Room
+            </button>
+            <button className="btn btn-outline" onClick={() => nav("/")}>
+              Home
+            </button>
+          </div>
+        </section>
       </div>
 
-      <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button style={styles.secondaryBtn} onClick={() => nav(`/room/${code}`)}>Back to Room</button>
-        <button style={styles.linkBtn} onClick={() => nav("/")}>Home</button>
-      </div>
+      <ThemeStyles />
     </div>
   );
 }
 
-/* ---------- helpers / styles ---------- */
-function Banner({ text }) {
-  return <div style={styles.banner}>{text}</div>;
+/** Inline theme so this page matches even without global index.css */
+function ThemeStyles() {
+  return (
+    <style>{`
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+  --container: min(720px, 94vw);
 }
-function ScreenWrap(children) {
-  return <div style={styles.wrap}>{children}</div>;
+
+*{box-sizing:border-box}
+html,body,#root{min-height:100%}
+body{margin:0; background: var(--bg);}
+
+.wrap{
+  min-height:100vh; min-height:100svh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+.col{ display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container); }
+
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px; padding:24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 14px 32px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
 }
 
-const styles = {
-  wrap: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-    padding: "clamp(8px, 2vw, 16px)",
-    overflowX: "hidden",
-  },
-  card: {
-    width: "100%",
-    maxWidth: 720,
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    boxSizing: "border-box",
-    margin: "0 auto",
-  },
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+.head-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 
-  headerRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  title: {
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-    margin: 0,
-  },
-  timer: { fontWeight: 700, color: "#ffd9b3", textShadow: "0 0 8px rgba(255,140,0,.6)" },
+/* Timer badge */
+.timer{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.12), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffdda8; letter-spacing:.04em; font-weight:800; font-size:.95rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.05) inset;
+}
 
-  subRow: { marginTop: 8, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
-  badge: {
-    padding: "6px 12px",
-    borderRadius: 999,
-    border: "1px solid #333",
-    background: "#121727",
-    letterSpacing: 1,
-    fontSize: 12,
-  },
+/* Badges row */
+.badges-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:6px 0 2px; }
+.badge{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.10), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffb25a; letter-spacing:.06em; font-weight:700; font-size:.9rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
 
-  resultRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    flexWrap: "wrap",
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid #222",
-    minWidth: 0,
-  },
+/* Banner / note */
+.note{
+  margin-bottom: 12px;
+  padding:12px; border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,140,0,.25);
+  box-shadow: 0 0 14px rgba(255,140,0,.10) inset;
+  color:#ffdda8; font-weight:700;
+}
 
-  // Winner: gentle gradient + stronger glow
-  firstPlace: {
-    borderColor: ORANGE,
-    boxShadow:
-      "0 0 0 1px rgba(255,140,0,.35) inset, 0 0 18px rgba(255,140,0,.55), 0 0 40px rgba(255,140,0,.25)",
-    background: "linear-gradient(180deg, rgba(255,140,0,.18), rgba(255,140,0,.06))",
-  },
+/* Results list */
+.results{ display:grid; gap:12px; margin-top:12px; }
+.result-row{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; min-width:0;
+  padding:12px; border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.result-row.first{
+  border-color: rgba(255,140,0,.85);
+  background: linear-gradient(180deg, rgba(255,140,0,.18), rgba(255,140,0,.06));
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.35),
+    0 0 0 1px rgba(255,140,0,.35),
+    0 10px 22px rgba(255,140,0,.28),
+    0 2px 8px rgba(255,140,0,.25);
+}
 
-  rankCell: { display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" },
-  rankNum: {
-    width: 36,
-    height: 36,
-    display: "grid",
-    placeItems: "center",
-    borderRadius: 999,
-    border: `1px solid ${ORANGE}`,
-    color: ORANGE,
-    fontWeight: 800,
-    background: "rgba(255,140,0,.08)",
-  },
-  tieBadge: {
-    marginLeft: 6,
-    padding: "2px 8px",
-    borderRadius: 999,
-    border: `1px solid ${ORANGE}`,
-    color: ORANGE,
-    fontSize: 12,
-  },
+.rank-cell{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+.rank-num{
+  width:36px; height:36px; display:grid; place-items:center; border-radius:999px;
+  border:1px solid rgba(255,140,0,.9); color:#ffb25a; font-weight:800;
+  background: rgba(255,140,0,.08);
+  box-shadow: 0 0 10px rgba(255,140,0,.35);
+}
+.tie-badge{
+  padding:2px 8px; border-radius:999px; font-size:.8rem; font-weight:800;
+  border:1px solid rgba(255,140,0,.75); color:#ffb25a;
+}
 
-  optionCell: { fontWeight: 700, minWidth: 0, flex: "1 1 200px" },
-  optionWinner: { textShadow: "0 0 10px rgba(255,140,0,.65)" },
+.option-cell{ font-weight:800; min-width:0; flex:1 1 200px; }
+.option-cell.winner{ text-shadow: 0 0 10px rgba(255,140,0,.65); }
+.points-cell{
+  margin-left:auto; text-align:right; flex:0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
 
-  pointsCell: {
-    marginLeft: "auto",
-    textAlign: "right",
-    fontVariantNumeric: "tabular-nums",
-    flex: "0 0 auto",
-  },
+/* Actions */
+.actions{
+  display:flex; gap:12px; margin-top:16px; flex-wrap:wrap;
+}
 
-  secondaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
-  linkBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#aaa",
-    cursor: "pointer",
-  },
+/* Buttons */
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 12px rgba(255,140,0,.24), 0 1px 0 rgba(140,70,0,.9) inset, 0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
 
-  text: { opacity: 0.9 },
-  banner: {
-    marginBottom: 12,
-    padding: 10,
-    borderRadius: 10,
-    background: "rgba(255,140,0,.08)",
-    border: `1px solid rgba(255,140,0,.4)`,
-    color: "#ffd9b3",
-  },
-};
+@media (max-width:600px){ .card{padding:18px} }
+    `}</style>
+  );
+}
