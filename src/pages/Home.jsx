@@ -140,11 +140,21 @@ export default function Home() {
 }
 
 *{box-sizing:border-box}
-html,body,#root,.wrap{height:100%}
-body{margin:0}
+
+/* Let the page expand; remove fixed 100% height from .wrap */
+html,body,#root{min-height:100%}
+
+body{
+  margin:0;
+  background: var(--bg); /* match the theme so tall pages look seamless */
+}
 
 .wrap{
+  /* Support across browsers: fallback -> svh -> dvh */
   min-height:100vh;
+  min-height:100svh;
+  min-height:100dvh;
+
   display:flex;
   flex-direction:column;
   align-items:center;
