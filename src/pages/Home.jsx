@@ -117,6 +117,7 @@ export default function Home() {
             Collect options from the group first, then open voting when ready.
           </p>
           <div className="stack">
+            {/* No markup change needed; .btn-outline is styled identical to .btn-primary below */}
             <button className="btn btn-outline" onClick={goCreateCollect}>
               Create a Group Idea Poll
             </button>
@@ -199,11 +200,10 @@ body{
 
 /* Logo card inherits .card but clamps to the shared container width */
 .card.logo-card{
-  width: var(--container);          /* <= same as .col / buttons */
+  width: var(--container);
   padding: 16px;
   position: relative;
   overflow: hidden;
-  /* Slightly richer look than normal cards */
   background:
     linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.16)),
     var(--panel);
@@ -286,39 +286,31 @@ body{
 .stack{display:flex;flex-direction:column;gap:16px}
 .section{margin:4px 0 6px}
 
-/* Buttons (full width of cards -> equals --container) */
+/* BUTTONS: unified solid orange for both .btn-primary and .btn-outline */
 .btn{
   appearance:none; border:none; cursor:pointer; font-weight:800;
   border-radius:14px; padding:14px 18px; width:100%;
   transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
 }
 .btn[disabled]{opacity:.7; cursor:not-allowed}
-.btn-primary{
-  color:#1a1005;
-  background: linear-gradient(180deg, var(--accent-2), var(--accent));
-  box-shadow:
-    0 10px 18px rgba(255,140,0,.28),
-    0 2px 0 rgba(255,140,0,.9) inset,
-    0 1px 0 rgba(255,255,255,.35) inset;
-}
-.btn-primary:hover{ filter:brightness(1.05) }
-.btn-primary:active{
-  transform: translateY(1px);
-  box-shadow:
-    0 6px 12px rgba(255,140,0,.24),
-    0 1px 0 rgba(140,70,0,.9) inset,
-    0 0 0 rgba(255,255,255,0) inset;
-}
+
+/* Solid orange look */
+.btn-primary,
 .btn-outline{
-  color:var(--accent-2);
-  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
-  border:1px solid rgba(255,140,0,.45);
-  box-shadow:
-    0 6px 14px rgba(0,0,0,.35),
-    0 1px 0 rgba(255,255,255,.04) inset;
+  background: var(--accent);
+  color:#1a1005;
+  border:1px solid var(--accent);
+  box-shadow: 0 10px 18px rgba(255,140,0,.30);
 }
+.btn-primary:hover,
 .btn-outline:hover{
-  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+  filter: brightness(1.04);
+  box-shadow: 0 12px 22px rgba(255,140,0,.38);
+}
+.btn-primary:active,
+.btn-outline:active{
+  transform: translateY(1px);
+  box-shadow: 0 8px 14px rgba(255,140,0,.28);
 }
 
 .footer-tip{opacity:.75; font-size:.9rem; margin-top:10px}
