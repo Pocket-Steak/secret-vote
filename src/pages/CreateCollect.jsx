@@ -184,7 +184,7 @@ export default function CreateCollect() {
         </p>
       </div>
 
-      {/* Self-contained theme (works even if index.css wasn't loaded) */}
+      {/* Self-contained theme */}
       <style>{`
 :root{
   --bg:#0e1116;
