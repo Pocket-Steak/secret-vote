@@ -157,7 +157,7 @@ export default function CreateCollect() {
 
         {/* Host PIN (REQUIRED) */}
         <label style={s.label}>
-          Host PIN <span style={{ color: ORANGE }}>(required, 4+ digits)</span>
+          Host PIN <span style={{ color: ORANGE }}>(4+ digits)</span>
         </label>
         <input
           value={hostPin}
