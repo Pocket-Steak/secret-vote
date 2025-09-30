@@ -42,14 +42,12 @@ export default function CreateCollect() {
       return;
     }
 
-    // 🔒 Host PIN is REQUIRED and must be 4+ digits
     const pin = hostPin.trim();
     if (!/^\d{4,}$/.test(pin)) {
       alert("Host PIN is required and must be at least 4 digits (numbers only).");
       return;
     }
 
-    // Target participants is optional number
     let target = null;
     if (targetHint.trim()) {
       const n = Number(targetHint);
@@ -68,8 +66,8 @@ export default function CreateCollect() {
         title: t,
         duration_minutes: Number(durationMin),
         max_per_user: Number(maxPerUser),
-        target_participants_hint: target, // nullable
-        host_pin: pin,                     // ✅ REQUIRED (no null)
+        target_participants_hint: target,
+        host_pin: pin,
         status: "collecting",
         created_at: new Date().toISOString(),
       };
@@ -172,19 +170,10 @@ export default function CreateCollect() {
             )}
 
             {/* Actions */}
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting || !pinValid}
-            >
+            <button type="submit" className="btn btn-primary" disabled={submitting || !pinValid}>
               {submitting ? "Creating…" : "Create Collection Room"}
             </button>
-
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={() => nav("/")}
-            >
+            <button type="button" className="btn btn-outline" onClick={() => nav("/")}>
               Cancel
             </button>
           </form>
@@ -195,32 +184,115 @@ export default function CreateCollect() {
         </p>
       </div>
 
-      {/* Page-specific styles that sit on top of the global theme */}
+      {/* Self-contained theme (works even if index.css wasn't loaded) */}
       <style>{`
-.label{
-  font-weight:700;
-  margin-top: 4px;
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;
+  --accent-2:#ffb25a;
+  --container: min(520px, 92vw);
 }
 
+*{box-sizing:border-box}
+html,body,#root{min-height:100%}
+body{margin:0; background: var(--bg);}
+
+.wrap{
+  min-height:100vh; min-height:100svh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+}
+
+.col{ display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container); }
+
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px; padding:24px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 10px 24px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 14px 32px rgba(0,0,0,.45), 0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
+
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+
+.label{font-weight:700; margin-top:4px}
+
+/* Field shell shared with inputs & selects */
+.field{
+  display:flex; align-items:center; gap:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.15));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px; padding:14px 16px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.field:focus-within{
+  border-color: rgba(255,140,0,.45);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35), 0 0 0 3px rgba(255,140,0,.18);
+}
+.field.invalid{ border-color:#c0392b; }
+
+.field input{
+  width:100%; background:transparent; border:none; outline:none;
+  color:var(--ink); font-size:1.05rem; letter-spacing:.02em;
+}
+
+/* Selects sit inside the field shell too */
 .select-field{ position:relative; }
 .select-field select{
   appearance:none; -webkit-appearance:none; -moz-appearance:none;
-  width:100%;
-  background: transparent;
-  border:none;
-  outline:none;
-  color: var(--ink);
-  font-size: 1.02rem;
-  line-height: 1.2;
+  width:100%; background:transparent; border:none; outline:none;
+  color:var(--ink); font-size:1.05rem; line-height:1.2;
 }
 .select-field .chev{
-  position:absolute; right:12px; top:50%; transform:translateY(-50%);
-  opacity:.8; pointer-events:none;
+  position:absolute; right:12px; top:50%; transform:translateY(-50%); opacity:.8; pointer-events:none;
 }
 
-/* Validation state for the PIN field */
-.field.invalid{ border-color:#c0392b; }
-.error{ color:#ff6b6b; font-size:.9rem; margin: -6px 0 6px; }
+/* Buttons */
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+}
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 12px rgba(255,140,0,.24), 0 1px 0 rgba(140,70,0,.9) inset, 0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow: 0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
+}
+
+.error{ color:#ff6b6b; font-size:.9rem; margin:-6px 0 6px }
+@media (max-width:600px){ .card{padding:18px} }
       `}</style>
     </div>
   );
