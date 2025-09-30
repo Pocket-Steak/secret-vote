@@ -63,14 +63,9 @@ export default function Home() {
 
   return (
     <div className="wrap">
-      {/* Logo now in a glossy card to match the UI */}
+      {/* Logo in a glossy card; width matches the buttons/column */}
       <div className="card logo-card">
-        <img
-          src={logoUrl}
-          alt="The Secret Vote"
-          className="logo-img"
-          loading="eager"
-        />
+        <img src={logoUrl} alt="The Secret Vote" className="logo-img" loading="eager" />
         <div className="logo-shine" aria-hidden="true" />
       </div>
 
@@ -131,7 +126,7 @@ export default function Home() {
 
       <p className="footer-tip">Tip: Share your code anywhere—QR, text, or link.</p>
 
-      {/* Theme styles (local to this page for now) */}
+      {/* Page-local theme styles */}
       <style>{`
 :root{
   --bg:#0e1116;
@@ -140,20 +135,21 @@ export default function Home() {
   --muted:#bfc6d3;
   --accent:#ff8c00;
   --accent-2:#ffb25a;
+
+  /* Shared max width for logo + column so logo is never bigger than buttons */
+  --container: min(520px, 92vw);
 }
 
 *{box-sizing:border-box}
-
-/* Let the page expand; remove fixed 100% height from .wrap */
 html,body,#root{min-height:100%}
 
 body{
   margin:0;
-  background: var(--bg); /* match the theme so tall pages look seamless */
+  background: var(--bg);
 }
 
 .wrap{
-  /* Support across browsers: fallback -> svh -> dvh */
+  /* viewport fallbacks */
   min-height:100vh;
   min-height:100svh;
   min-height:100dvh;
@@ -170,86 +166,16 @@ body{
   color:var(--ink);
 }
 
-/* ----- Modern glossy logo card ----- */
-.logo-card{
-  position: relative;
-  width: min(520px, 92vw);
-  padding: 18px;
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.16)),
-    var(--panel);
-  border:1px solid rgba(255,255,255,.06);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.06) inset,
-    0 22px 40px rgba(0,0,0,.55),
-    0 0 64px rgba(255,140,0,.10);
-  overflow: hidden;
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, filter .18s ease;
-}
-.logo-card:hover{
-  transform: translateY(-2px);
-  border-color: rgba(255,140,0,.22);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.08) inset,
-    0 28px 56px rgba(0,0,0,.6),
-    0 0 84px rgba(255,140,0,.16);
-  filter: brightness(1.02);
-}
-/* Gradient border accent */
-.logo-card::before{
-  content:"";
-  position:absolute; inset:0; border-radius:inherit; padding:1px;
-  background: linear-gradient(135deg, rgba(255,140,0,.65), rgba(255,255,255,.12) 35%, rgba(255,140,0,0) 65%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  pointer-events:none;
-}
-/* Ambient top glow */
-.logo-card::after{
-  content:"";
-  position:absolute; inset:-30px -30px auto -30px; height:60%;
-  border-radius:inherit;
-  background: radial-gradient(70% 55% at 50% 0%, rgba(255,140,0,.10), transparent 70%);
-  pointer-events:none;
-}
-
-.logo-img{
-  display:block;
-  width:100%;
-  height:auto;
-  border-radius: 14px;
-  background:#0c0f16;
-  /* remove the old heavy glow; the card supplies the effect */
-  filter:none;
-  position:relative;
-  z-index:1;
-}
-
-/* Subtle animated sheen */
-.logo-shine{
-  position:absolute; inset:0; border-radius:inherit;
-  background: linear-gradient(115deg, transparent 0%,
-            rgba(255,255,255,.08) 30%, rgba(255,255,255,.02) 45%, transparent 65%);
-  transform: translateX(-120%);
-  animation: sheen 3.8s ease-in-out infinite;
-  pointer-events:none;
-}
-@keyframes sheen{
-  0%{ transform: translateX(-120%) }
-  60%{ transform: translateX(120%) }
-  100%{ transform: translateX(120%) }
-}
-
-/* ----- Rest of the shared UI styles ----- */
+/* Column matches --container, so buttons/cards define the max visual width */
 .col{
   display:flex;
   flex-direction:column;
   align-items:center;
   gap: 16px;
-  width: min(520px, 92vw);
+  width: var(--container);
 }
 
+/* Base card (used by sections) */
 .card{
   width:100%;
   background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
@@ -271,6 +197,65 @@ body{
   border-color: rgba(255,140,0,.25);
 }
 
+/* Logo card inherits .card but clamps to the shared container width */
+.card.logo-card{
+  width: var(--container);          /* <= same as .col / buttons */
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  /* Slightly richer look than normal cards */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.16)),
+    var(--panel);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 22px 40px rgba(0,0,0,.55),
+    0 0 64px rgba(255,140,0,.10);
+}
+.card.logo-card::before{
+  content:"";
+  position:absolute; inset:0; border-radius:inherit; padding:1px;
+  background: linear-gradient(135deg, rgba(255,140,0,.65), rgba(255,255,255,.12) 35%, rgba(255,140,0,0) 65%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events:none;
+}
+.card.logo-card::after{
+  content:"";
+  position:absolute; inset:-30px -30px auto -30px; height:60%;
+  border-radius:inherit;
+  background: radial-gradient(70% 55% at 50% 0%, rgba(255,140,0,.10), transparent 70%);
+  pointer-events:none;
+}
+
+/* The image itself scales to card width */
+.logo-img{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:12px;
+  background:#0c0f16;
+  filter:none;
+  position:relative;
+  z-index:1;
+}
+
+/* Subtle animated sheen */
+.logo-shine{
+  position:absolute; inset:0; border-radius:inherit;
+  background: linear-gradient(115deg, transparent 0%,
+            rgba(255,255,255,.08) 30%, rgba(255,255,255,.02) 45%, transparent 65%);
+  transform: translateX(-120%);
+  animation: sheen 3.8s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes sheen{
+  0%{ transform: translateX(-120%) }
+  60%{ transform: translateX(120%) }
+  100%{ transform: translateX(120%) }
+}
+
+/* Text + helpers */
 .hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
 .help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
 
@@ -301,6 +286,7 @@ body{
 .stack{display:flex;flex-direction:column;gap:16px}
 .section{margin:4px 0 6px}
 
+/* Buttons (full width of cards -> equals --container) */
 .btn{
   appearance:none; border:none; cursor:pointer; font-weight:800;
   border-radius:14px; padding:14px 18px; width:100%;
@@ -323,7 +309,6 @@ body{
     0 1px 0 rgba(140,70,0,.9) inset,
     0 0 0 rgba(255,255,255,0) inset;
 }
-
 .btn-outline{
   color:var(--accent-2);
   background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
