@@ -1,123 +1,160 @@
 /* =========================
-   Global base / mobile-safe
+   Secret Vote – 3D Orange Theme
    ========================= */
-:root {
-  /* Your original font + rendering prefs */
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  /* Safe-area CSS variables for iOS notch devices */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-
-  /* Comfortable tap targets on mobile */
-  --tap-min: 44px;
+/* Theme tokens */
+:root{
+  --bg:#0e1116;
+  --panel:#1a1f27;
+  --ink:#f5efe6;
+  --muted:#bfc6d3;
+  --accent:#ff8c00;        /* your orange */
+  --accent-2:#ffb25a;
 }
 
-/* Basic element hygiene that plays well with inline styles */
-*,
-*::before,
-*::after { box-sizing: border-box; }
-
-html, body, #root { height: 100%; }
-
-/* On mobile Safari, 100svh avoids URL-bar jump;
-   fall back to 100vh on older engines. */
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100svh; /* mobile-friendly vh */
-  background: #242424;
-  color: rgba(255, 255, 255, 0.87);
-
-  /* Respect safe areas so content isn’t flush to the notch/home bar */
-  padding-top: max(0px, var(--safe-top));
-  padding-right: max(0px, var(--safe-right));
-  padding-bottom: max(0px, var(--safe-bottom));
-  padding-left: max(0px, var(--safe-left));
+/* Page wrap background (keeps your light-mode rules below) */
+.wrap{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
+  padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    var(--bg);
+  color:var(--ink);
 }
 
-/* Media / images scale down on phones */
-img,
-svg,
-video,
-canvas {
-  max-width: 100%;
+/* Logo */
+.logo{
+  width: min(360px, 86vw);
   height: auto;
-  display: block;
+  display:block;
+  border-radius:14px;
+  box-shadow: 0 0 12px rgba(255,140,0,.3);
+  margin: 0 0 12px;
+  filter: drop-shadow(0 0 8px rgba(255,140,0,.28));
 }
 
-/* Links */
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: none;
+/* Column stack */
+.col{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap: 16px;
+  width: min(520px, 92vw);
 }
-a:hover { color: #535bf2; }
 
-/* Headings */
-h1 {
-  font-size: clamp(1.8rem, 5vw, 3.2rem);
-  line-height: 1.1;
-  margin: 0.2em 0 0.5em;
+/* Cards (light 3D / lifted) */
+.card{
+  width:100%;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.08)), var(--panel);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;
+  padding:24px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 10px 24px rgba(0,0,0,.35),
+    0 2px 6px rgba(0,0,0,.25);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 14px 32px rgba(0,0,0,.45),
+    0 3px 10px rgba(0,0,0,.3);
+  border-color: rgba(255,140,0,.25);
+}
+
+/* Headers & helper text */
+.hdr{font-size:1.35rem;font-weight:800;letter-spacing:.2px;margin:0 0 10px;text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.help{color:var(--muted);font-size:.95rem;margin:.25rem 0 0}
+
+/* Input field shell */
+.field{
+  display:flex; align-items:center; gap:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.15));
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  padding:14px 16px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.35);
+}
+.field input{
+  width:100%;
+  font-size:1.05rem;
+  background:transparent; border:none; outline:none;
+  color:var(--ink);
+  letter-spacing:.12em;
+  text-transform: uppercase;
+  text-align:center;
+}
+.field:focus-within{
+  border-color: rgba(255,140,0,.45);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.35),
+    0 0 0 3px rgba(255,140,0,.18);
 }
 
 /* Buttons */
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1rem;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s, transform 0.08s ease;
-  min-height: var(--tap-min); /* Larger tap target on iPhone */
+.btn{
+  appearance:none; border:none; cursor:pointer; font-weight:800;
+  border-radius:14px; padding:14px 18px; width:100%;
+  transition: transform .08s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
 }
-button:hover { border-color: #646cff; }
-button:active { transform: translateY(1px); }
-button:focus,
-button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
-
-/* Inputs (helps your code box on phones) */
-input, select, textarea {
-  font: inherit;
-  min-height: var(--tap-min);
-  border-radius: 12px;
+.btn[disabled]{opacity:.7; cursor:not-allowed}
+.btn-primary{
+  color:#1a1005;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow:
+    0 10px 18px rgba(255,140,0,.28),
+    0 2px 0 rgba(255,140,0,.9) inset,
+    0 1px 0 rgba(255,255,255,.35) inset;
+}
+.btn-primary:hover{ filter:brightness(1.05) }
+.btn-primary:active{
+  transform: translateY(1px);
+  box-shadow:
+    0 6px 12px rgba(255,140,0,.24),
+    0 1px 0 rgba(140,70,0,.9) inset,
+    0 0 0 rgba(255,255,255,0) inset;
+}
+.btn-outline{
+  color:var(--accent-2);
+  background: linear-gradient(180deg, rgba(255,140,0,.08), rgba(255,140,0,.04));
+  border:1px solid rgba(255,140,0,.45);
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.35),
+    0 1px 0 rgba(255,255,255,.04) inset;
+}
+.btn-outline:hover{
+  background: linear-gradient(180deg, rgba(255,140,0,.14), rgba(255,140,0,.06));
 }
 
-/* Reduce motion when user prefers it */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+/* Layout helpers */
+.stack{display:flex;flex-direction:column;gap:16px}
+.section{margin:4px 0 6px}
+.footer-tip{opacity:.75; font-size:.9rem; margin-top:10px}
+
+/* Small screens */
+@media (max-width:600px){
+  .wrap{padding:22px 14px 60px}
+  .card{padding:18px}
 }
 
-/* Light mode adjustments (kept from your original) */
+/* Light mode overrides so theme still looks good in light */
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+  .wrap{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
+      #ffffff;
+    color:#213547;
   }
-  body { background: #ffffff; color: #213547; }
-  a:hover { color: #747bff; }
-  button { background-color: #f9f9f9; }
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,.8), rgba(255,255,255,.65));
+    border-color: rgba(0,0,0,.06);
+  }
+  .help{color:#5b6473}
 }
