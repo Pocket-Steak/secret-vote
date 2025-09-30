@@ -4,8 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { addOptionsByCode } from "../lib/collect";
 
-const ORANGE = "#ff8c00";
-
 /** Stable per-browser token stored in localStorage (for debug only) */
 function getClientToken() {
   const KEY = "client_token";
@@ -90,9 +88,7 @@ export default function CollectAdd() {
 
     setSubmitting(true);
     try {
-      // ✅ This helper looks up the poll UUID and calls the RPC with correct args/types
       await addOptionsByCode(code, unique);
-
       nav(`/collect/${code}`, { state: { added: unique.length } });
     } catch (err) {
       console.error(err);
@@ -103,160 +99,118 @@ export default function CollectAdd() {
   }
 
   if (loading) {
-    return ScreenWrap(
-      <div style={s.card}>
-        <h1 style={s.title}>Room {code}</h1>
-        <p style={{ opacity: 0.8 }}>Loading…</p>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Room {code}</h1>
+            <p className="help">Loading…</p>
+          </section>
+        </div>
       </div>
     );
   }
+
   if (!poll) {
-    return ScreenWrap(
-      <div style={s.card}>
-        <h1 style={s.title}>Room {code}</h1>
-        <p style={{ opacity: 0.8 }}>
-          We couldn’t find this collection room. Double-check the code.
-        </p>
-        <button style={s.secondaryBtn} onClick={() => nav("/")}>
-          Home
-        </button>
+    return (
+      <div className="wrap">
+        <div className="col">
+          <section className="card section">
+            <h1 className="hdr">Room {code}</h1>
+            <p className="help">
+              We couldn’t find this collection room. Double-check the code.
+            </p>
+            <div className="stack">
+              <button className="btn btn-outline" onClick={() => nav("/")}>
+                Home
+              </button>
+            </div>
+          </section>
+        </div>
       </div>
     );
   }
 
-  return ScreenWrap(
-    <div style={s.card}>
-      <div style={s.headerRow}>
-        <h1 style={s.title}>{poll.title || "Add Options"}</h1>
-        <span style={s.badge}>Code: {code}</span>
+  return (
+    <div className="wrap">
+      <div className="col">
+        <section className="card section">
+          <div className="head-row">
+            <h1 className="hdr">{poll.title || "Add Options"}</h1>
+            <span className="badge">Code: {code}</span>
+          </div>
+
+          <p className="note">
+            Add your ideas below. You can add <strong>{N}</strong>{" "}
+            {N === 1 ? "option" : "options"}.
+          </p>
+
+          <div className="inputs-grid">
+            {Array.from({ length: N }).map((_, i) => (
+              <label key={i} className="field">
+                <input
+                  value={values[i] || ""}
+                  onChange={(e) => setAt(i, e.target.value)}
+                  placeholder={`Option ${i + 1}`}
+                  maxLength={120}
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="stack">
+            <button
+              className="btn btn-primary"
+              onClick={submit}
+              disabled={submitting}
+            >
+              {submitting ? "Adding…" : "Add"}
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => nav(`/collect/${code}`)}
+            >
+              Back
+            </button>
+          </div>
+
+          <p className="help" style={{ marginTop: 8 }}>
+            Debug: client={getClientToken()}
+          </p>
+        </section>
       </div>
 
-      <div style={s.helperBox}>
-        Add your ideas below. You can add <strong>{N}</strong>{" "}
-        {N === 1 ? "option" : "options"}.
-      </div>
+      {/* Page-specific additions that sit on top of the global theme */}
+      <style>{`
+.head-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; flex-wrap:wrap;
+}
 
-      <div style={{ display: "grid", gap: 10 }}>
-        {Array.from({ length: N }).map((_, i) => (
-          <input
-            key={i}
-            value={values[i] || ""}
-            onChange={(e) => setAt(i, e.target.value)}
-            placeholder={`Option ${i + 1}`}
-            maxLength={120}
-            style={s.input}
-          />
-        ))}
-      </div>
+.badge{
+  padding:6px 12px; border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,140,0,.10), rgba(255,140,0,.06));
+  border:1px solid rgba(255,140,0,.45);
+  color:#ffb25a; letter-spacing:.06em; font-weight:700; font-size:.9rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+}
 
-      <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button
-          style={{ ...s.primaryBtn, opacity: submitting ? 0.7 : 1 }}
-          onClick={submit}
-          disabled={submitting}
-        >
-          {submitting ? "Adding…" : "Add"}
-        </button>
-        <button style={s.linkBtn} onClick={() => nav(`/collect/${code}`)}>
-          Back
-        </button>
-      </div>
+.note{
+  margin:12px 0 10px; padding:12px; border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
+  border:1px solid rgba(255,140,0,.25);
+  box-shadow: 0 0 14px rgba(255,140,0,.12) inset;
+  color: var(--ink);
+}
 
-      <div style={{ marginTop: 10, opacity: 0.6, fontSize: 12 }}>
-        Debug: client={getClientToken()}
-      </div>
+.inputs-grid{
+  display:grid; gap:12px;
+}
+
+@media (min-width: 720px){
+  .inputs-grid{ grid-template-columns: 1fr 1fr; }
+}
+      `}</style>
     </div>
   );
 }
-
-/* ---------- layout helpers / styles ---------- */
-function ScreenWrap(children) {
-  return <div style={s.wrap}>{children}</div>;
-}
-
-const s = {
-  wrap: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#0b0f17",
-    color: "#e9e9f1",
-    padding: "clamp(8px, 2vw, 16px)",
-    overflowX: "hidden",
-  },
-  card: {
-    width: "100%",
-    maxWidth: 720,
-    padding: "clamp(16px, 3vw, 24px)",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.04)",
-    boxShadow: "0 0 20px rgba(255,140,0,.35)",
-    boxSizing: "border-box",
-    margin: "0 auto",
-  },
-  headerRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  title: {
-    margin: 0,
-    fontSize: "clamp(22px, 4.5vw, 28px)",
-    textShadow: "0 0 12px rgba(255,140,0,.8)",
-  },
-  badge: {
-    padding: "6px 12px",
-    borderRadius: 999,
-    border: "1px solid #333",
-    background: "#121727",
-    letterSpacing: 1,
-    fontSize: 12,
-  },
-  helperBox: {
-    marginTop: 12,
-    marginBottom: 10,
-    padding: 12,
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,140,0,.25)",
-    boxShadow: "0 0 14px rgba(255,140,0,.15) inset",
-  },
-  input: {
-    padding: "12px 14px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "#121727",
-    color: "#fff",
-    width: "100%",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  primaryBtn: {
-    padding: "12px 18px",
-    borderRadius: 12,
-    border: "none",
-    background: ORANGE,
-    color: "#000",
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 0 14px rgba(255,140,0,.8)",
-  },
-  linkBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: "1px solid #333",
-    background: "transparent",
-    color: "#aaa",
-    cursor: "pointer",
-  },
-  secondaryBtn: {
-    padding: "12px 16px",
-    borderRadius: 12,
-    border: `1px solid ${ORANGE}`,
-    background: "transparent",
-    color: ORANGE,
-    cursor: "pointer",
-  },
-};
