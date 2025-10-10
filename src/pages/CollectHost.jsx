@@ -11,25 +11,21 @@ export default function CollectHost() {
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // pin UI
+  // PIN state
   const [pin, setPin] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-
-  // action
   const [acting, setActing] = useState(false);
 
-  // =========================
-  // Randomizer state + helpers
-  // =========================
+  // Randomizer state
   const [randCount, setRandCount] = useState(1);
   const [randAllowDup, setRandAllowDup] = useState(false);
   const [randSeed, setRandSeed] = useState("");
   const [randWorking, setRandWorking] = useState(false);
-  const [randResults, setRandResults] = useState([]); // [{ rank, label }]
+  const [randResults, setRandResults] = useState([]); // [{rank, label}]
 
-  // FNV-1a hash
+  // ---------- RNG helpers ----------
   function hashString(str) {
     let h = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
@@ -38,7 +34,6 @@ export default function CollectHost() {
     }
     return h >>> 0;
   }
-  // Deterministic RNG
   function mulberry32(a) {
     return function () {
       let t = (a += 0x6d2b79f5);
@@ -47,7 +42,6 @@ export default function CollectHost() {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  // Fisher–Yates with optional seeded RNG
   function seededShuffle(arr, seedStr) {
     const out = arr.slice();
     const seeded = !!seedStr;
@@ -59,8 +53,25 @@ export default function CollectHost() {
     }
     return out;
   }
+  function extractLabel(row) {
+    const candidates = [
+      row?.label,
+      row?.text,
+      row?.option_text,
+      row?.choice,
+      row?.name,
+      row?.title,
+      row?.value,
+      row?.option,
+    ];
+    return (
+      candidates
+        .map((v) => (v ?? "").toString().trim())
+        .find((v) => v.length > 0) || ""
+    );
+  }
 
-  // read poll
+  // ---------- load poll ----------
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -94,7 +105,6 @@ export default function CollectHost() {
     setErrorMsg("");
     setVerifying(true);
     try {
-      // SQL: collect_verify_pin(_code text, _pin text) -> boolean
       const { data, error } = await supabase.rpc("collect_verify_pin", {
         _code: code,
         _pin: pin,
@@ -124,7 +134,6 @@ export default function CollectHost() {
     setErrorMsg("");
     setActing(true);
     try {
-      // SQL: collect_finalize_to_voting(_code text, _pin text) -> text
       const { error } = await supabase.rpc("collect_finalize_to_voting", {
         _code: code,
         _pin: pin,
@@ -153,9 +162,7 @@ export default function CollectHost() {
     else console.error(error);
   }
 
-  // =========================
-  // Randomizer action (client)
-  // =========================
+  // ---------- Randomizer (collect_options) ----------
   async function runRandomizer() {
     if (!verified) return;
     setErrorMsg("");
@@ -163,58 +170,50 @@ export default function CollectHost() {
     setRandResults([]);
 
     try {
-      // 1) Try RPC `collect_counts` if it exists in your project
-      let labels = [];
-      let triedCountsRpc = false;
+      let rows = [];
+      let loadErr = null;
 
-      try {
-        const { data: counts, error: countsErr } = await supabase.rpc(
-          "collect_counts",
-          { _code: code }
-        );
-        triedCountsRpc = true;
-        if (!countsErr && Array.isArray(counts)) {
-          labels = counts
-            .map((r) => (r.label ?? r.choice ?? "").toString().trim())
-            .filter((s) => s.length > 0);
-        }
-      } catch {
-        // ignore; we'll fall back to the table query
+      // First try: keyed by code
+      let { data, error } = await supabase
+        .from("collect_options")
+        .select(
+          "label, text, option_text, choice, name, title, value, option, code, poll_id"
+        )
+        .eq("code", code);
+      if (error) loadErr = error;
+      else rows = Array.isArray(data) ? data : [];
+
+      // Fallback: keyed by poll_id
+      if (!loadErr && rows.length === 0 && poll?.id) {
+        const { data: byPoll, error: byPollErr } = await supabase
+          .from("collect_options")
+          .select(
+            "label, text, option_text, choice, name, title, value, option, code, poll_id"
+          )
+          .eq("poll_id", poll.id);
+        if (byPollErr) loadErr = byPollErr;
+        else rows = Array.isArray(byPoll) ? byPoll : [];
       }
 
-      // 2) Fallback to a table named `collect_choices` with { code, label }
+      if (loadErr) {
+        console.error(loadErr);
+        setErrorMsg("Could not load options from collect_options.");
+        return;
+      }
+
+      const labels = rows.map(extractLabel).filter(Boolean);
       if (labels.length === 0) {
-        const { data: rows, error } = await supabase
-          .from("collect_choices")
-          .select("label")
-          .eq("code", code);
-
-        if (error && triedCountsRpc) {
-          setErrorMsg(error.message || "Could not load choices.");
-          setRandWorking(false);
-          return;
-        }
-
-        if (rows && rows.length) {
-          labels = rows
-            .map((r) => (r.label ?? "").toString().trim())
-            .filter((s) => s.length > 0);
-        }
+        setErrorMsg("No options found in collect_options for this poll.");
+        return;
       }
 
-      // 3) Unique labels if duplicates are not allowed
       const uniqueLabels = Array.from(new Set(labels));
-
-      // 4) Shuffle deterministically if seed provided
       const seed = randSeed.trim() || undefined;
       const shuffled = seededShuffle(uniqueLabels, seed);
-
-      // 5) Build results
       const n = Math.max(1, Number(randCount) || 1);
-      let results = [];
 
+      let results = [];
       if (randAllowDup) {
-        // sample with replacement (uses seeded RNG if provided)
         const rng = seed ? mulberry32(hashString(seed)) : null;
         for (let i = 0; i < n; i++) {
           if (uniqueLabels.length === 0) break;
@@ -223,8 +222,10 @@ export default function CollectHost() {
           results.push({ rank: i + 1, label: uniqueLabels[idx] });
         }
       } else {
-        // no replacement
-        results = shuffled.slice(0, n).map((label, i) => ({ rank: i + 1, label }));
+        results = shuffled.slice(0, n).map((label, i) => ({
+          rank: i + 1,
+          label,
+        }));
       }
 
       setRandResults(results);
@@ -241,9 +242,7 @@ export default function CollectHost() {
     navigator.clipboard.writeText(txt).catch(() => {});
   }
 
-  // ===============
-  // Render
-  // ===============
+  // ---------- Render ----------
   if (loading) {
     return (
       <div className="wrap">
@@ -257,6 +256,7 @@ export default function CollectHost() {
       </div>
     );
   }
+
   if (!poll) {
     return (
       <div className="wrap">
@@ -300,9 +300,7 @@ export default function CollectHost() {
             </div>
             <div className="info">
               <div className="info-label">Target participants</div>
-              <div className="info-value">
-                {poll.target_participants_hint ?? "-"}
-              </div>
+              <div className="info-value">{poll.target_participants_hint ?? "-"}</div>
             </div>
           </div>
 
@@ -313,9 +311,7 @@ export default function CollectHost() {
               <label className={`field ${pin && !pinValid ? "invalid" : ""}`}>
                 <input
                   value={pin}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/[^\d]/g, ""))
-                  }
+                  onChange={(e) => setPin(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder="4+ digits"
                   inputMode="numeric"
                   maxLength={12}
@@ -330,10 +326,7 @@ export default function CollectHost() {
                 >
                   {verifying ? "Verifying…" : "Verify"}
                 </button>
-                <button
-                  className="btn btn-outline"
-                  onClick={() => nav(`/collect/${code}`)}
-                >
+                <button className="btn btn-outline" onClick={() => nav(`/collect/${code}`)}>
                   Back
                 </button>
               </div>
@@ -350,21 +343,14 @@ export default function CollectHost() {
                     className="btn btn-primary"
                     onClick={openVoting}
                     disabled={acting || poll.status !== "collecting"}
-                    title={
-                      poll.status !== "collecting"
-                        ? "Already finalized"
-                        : "Open voting"
-                    }
+                    title={poll.status !== "collecting" ? "Already finalized" : "Open voting"}
                   >
                     {acting ? "Working…" : "Open Voting"}
                   </button>
                   <button className="btn btn-outline" onClick={refresh}>
                     Refresh
                   </button>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => nav(`/collect/${code}`)}
-                  >
+                  <button className="btn btn-outline" onClick={() => nav(`/collect/${code}`)}>
                     Back to Landing
                   </button>
                 </div>
@@ -374,9 +360,7 @@ export default function CollectHost() {
                 {poll.status === "voting" && (
                   <p className="note" style={{ marginTop: 10 }}>
                     Voting is open. Share the voting code with participants:
-                    <span className="badge" style={{ marginLeft: 8 }}>
-                      Vote Code: {code}
-                    </span>
+                    <span className="badge" style={{ marginLeft: 8 }}>Vote Code: {code}</span>
                   </p>
                 )}
               </div>
@@ -387,8 +371,7 @@ export default function CollectHost() {
                   Randomizer (use collected choices)
                 </h3>
                 <p className="help" style={{ marginTop: 0 }}>
-                  Generate N random winners from all collected choices for this
-                  code.
+                  Generate N random winners from all collected options.
                 </p>
 
                 <div className="info-grid" style={{ marginTop: 10 }}>
@@ -399,9 +382,7 @@ export default function CollectHost() {
                         inputMode="numeric"
                         value={randCount}
                         onChange={(e) =>
-                          setRandCount(
-                            String(e.target.value).replace(/[^\d]/g, "")
-                          )
+                          setRandCount(String(e.target.value).replace(/[^\d]/g, ""))
                         }
                         placeholder="1"
                       />
@@ -417,7 +398,7 @@ export default function CollectHost() {
                         onChange={(e) => setRandAllowDup(e.target.checked)}
                         style={{ width: 20, height: 20 }}
                       />
-                      <span>Same choice can be picked multiple times</span>
+                      <span>Same option can win multiple times</span>
                     </label>
                   </div>
 
@@ -434,20 +415,14 @@ export default function CollectHost() {
                 </div>
 
                 <div className="stack" style={{ marginTop: 12 }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={runRandomizer}
-                    disabled={randWorking}
-                  >
+                  <button className="btn btn-primary" onClick={runRandomizer} disabled={randWorking}>
                     {randWorking ? "Randomizing…" : "Run Randomizer"}
                   </button>
 
                   {randResults?.length > 0 && (
                     <>
                       <div className="note">
-                        <strong style={{ display: "block", marginBottom: 6 }}>
-                          Results
-                        </strong>
+                        <strong style={{ display: "block", marginBottom: 6 }}>Results</strong>
                         <ol style={{ margin: 0, paddingLeft: 18 }}>
                           {randResults.map((r) => (
                             <li key={`${r.rank}-${r.label}`}>{r.label}</li>
