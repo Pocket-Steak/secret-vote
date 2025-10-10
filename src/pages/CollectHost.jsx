@@ -20,6 +20,46 @@ export default function CollectHost() {
   // action
   const [acting, setActing] = useState(false);
 
+  // =========================
+  // Randomizer state + helpers
+  // =========================
+  const [randCount, setRandCount] = useState(1);
+  const [randAllowDup, setRandAllowDup] = useState(false);
+  const [randSeed, setRandSeed] = useState("");
+  const [randWorking, setRandWorking] = useState(false);
+  const [randResults, setRandResults] = useState([]); // [{ rank, label }]
+
+  // FNV-1a hash
+  function hashString(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+  // Deterministic RNG
+  function mulberry32(a) {
+    return function () {
+      let t = (a += 0x6d2b79f5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // Fisher–Yates with optional seeded RNG
+  function seededShuffle(arr, seedStr) {
+    const out = arr.slice();
+    const seeded = !!seedStr;
+    const rng = seeded ? mulberry32(hashString(seedStr)) : null;
+    for (let i = out.length - 1; i > 0; i--) {
+      const r = seeded ? rng() : Math.random();
+      const j = Math.floor(r * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
   // read poll
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +153,97 @@ export default function CollectHost() {
     else console.error(error);
   }
 
+  // =========================
+  // Randomizer action (client)
+  // =========================
+  async function runRandomizer() {
+    if (!verified) return;
+    setErrorMsg("");
+    setRandWorking(true);
+    setRandResults([]);
+
+    try {
+      // 1) Try RPC `collect_counts` if it exists in your project
+      let labels = [];
+      let triedCountsRpc = false;
+
+      try {
+        const { data: counts, error: countsErr } = await supabase.rpc(
+          "collect_counts",
+          { _code: code }
+        );
+        triedCountsRpc = true;
+        if (!countsErr && Array.isArray(counts)) {
+          labels = counts
+            .map((r) => (r.label ?? r.choice ?? "").toString().trim())
+            .filter((s) => s.length > 0);
+        }
+      } catch {
+        // ignore; we'll fall back to the table query
+      }
+
+      // 2) Fallback to a table named `collect_choices` with { code, label }
+      if (labels.length === 0) {
+        const { data: rows, error } = await supabase
+          .from("collect_choices")
+          .select("label")
+          .eq("code", code);
+
+        if (error && triedCountsRpc) {
+          setErrorMsg(error.message || "Could not load choices.");
+          setRandWorking(false);
+          return;
+        }
+
+        if (rows && rows.length) {
+          labels = rows
+            .map((r) => (r.label ?? "").toString().trim())
+            .filter((s) => s.length > 0);
+        }
+      }
+
+      // 3) Unique labels if duplicates are not allowed
+      const uniqueLabels = Array.from(new Set(labels));
+
+      // 4) Shuffle deterministically if seed provided
+      const seed = randSeed.trim() || undefined;
+      const shuffled = seededShuffle(uniqueLabels, seed);
+
+      // 5) Build results
+      const n = Math.max(1, Number(randCount) || 1);
+      let results = [];
+
+      if (randAllowDup) {
+        // sample with replacement (uses seeded RNG if provided)
+        const rng = seed ? mulberry32(hashString(seed)) : null;
+        for (let i = 0; i < n; i++) {
+          if (uniqueLabels.length === 0) break;
+          const r = seed ? rng() : Math.random();
+          const idx = Math.floor(r * uniqueLabels.length);
+          results.push({ rank: i + 1, label: uniqueLabels[idx] });
+        }
+      } else {
+        // no replacement
+        results = shuffled.slice(0, n).map((label, i) => ({ rank: i + 1, label }));
+      }
+
+      setRandResults(results);
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("Randomizer failed.");
+    } finally {
+      setRandWorking(false);
+    }
+  }
+
+  function copyResults() {
+    const txt = randResults.map((r) => `${r.rank}. ${r.label}`).join("\n");
+    navigator.clipboard.writeText(txt).catch(() => {});
+  }
+
+  // ===============
+  // Render
+  // ===============
   if (loading) {
     return (
       <div className="wrap">
@@ -169,7 +300,9 @@ export default function CollectHost() {
             </div>
             <div className="info">
               <div className="info-label">Target participants</div>
-              <div className="info-value">{poll.target_participants_hint ?? "-"}</div>
+              <div className="info-value">
+                {poll.target_participants_hint ?? "-"}
+              </div>
             </div>
           </div>
 
@@ -180,7 +313,9 @@ export default function CollectHost() {
               <label className={`field ${pin && !pinValid ? "invalid" : ""}`}>
                 <input
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/[^\d]/g, ""))}
+                  onChange={(e) =>
+                    setPin(e.target.value.replace(/[^\d]/g, ""))
+                  }
                   placeholder="4+ digits"
                   inputMode="numeric"
                   maxLength={12}
@@ -206,40 +341,127 @@ export default function CollectHost() {
               {errorMsg && <p className="error">{errorMsg}</p>}
             </div>
           ) : (
-            <div className="panel">
-              <p className="good">PIN verified ✔</p>
+            <>
+              <div className="panel">
+                <p className="good">PIN verified ✔</p>
 
-              <div className="stack">
-                <button
-                  className="btn btn-primary"
-                  onClick={openVoting}
-                  disabled={acting || poll.status !== "collecting"}
-                  title={
-                    poll.status !== "collecting" ? "Already finalized" : "Open voting"
-                  }
-                >
-                  {acting ? "Working…" : "Open Voting"}
-                </button>
-                <button className="btn btn-outline" onClick={refresh}>
-                  Refresh
-                </button>
-                <button
-                  className="btn btn-outline"
-                  onClick={() => nav(`/collect/${code}`)}
-                >
-                  Back to Landing
-                </button>
+                <div className="stack">
+                  <button
+                    className="btn btn-primary"
+                    onClick={openVoting}
+                    disabled={acting || poll.status !== "collecting"}
+                    title={
+                      poll.status !== "collecting"
+                        ? "Already finalized"
+                        : "Open voting"
+                    }
+                  >
+                    {acting ? "Working…" : "Open Voting"}
+                  </button>
+                  <button className="btn btn-outline" onClick={refresh}>
+                    Refresh
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => nav(`/collect/${code}`)}
+                  >
+                    Back to Landing
+                  </button>
+                </div>
+
+                {errorMsg && <p className="error">{errorMsg}</p>}
+
+                {poll.status === "voting" && (
+                  <p className="note" style={{ marginTop: 10 }}>
+                    Voting is open. Share the voting code with participants:
+                    <span className="badge" style={{ marginLeft: 8 }}>
+                      Vote Code: {code}
+                    </span>
+                  </p>
+                )}
               </div>
 
-              {errorMsg && <p className="error">{errorMsg}</p>}
-
-              {poll.status === "voting" && (
-                <p className="note" style={{ marginTop: 10 }}>
-                  Voting is open. Share the voting code with participants:
-                  <span className="badge" style={{ marginLeft: 8 }}>Vote Code: {code}</span>
+              {/* Randomizer Panel */}
+              <div className="panel" style={{ marginTop: 12 }}>
+                <h3 className="hdr" style={{ fontSize: "1.1rem", marginBottom: 8 }}>
+                  Randomizer (use collected choices)
+                </h3>
+                <p className="help" style={{ marginTop: 0 }}>
+                  Generate N random winners from all collected choices for this
+                  code.
                 </p>
-              )}
-            </div>
+
+                <div className="info-grid" style={{ marginTop: 10 }}>
+                  <div className="info">
+                    <div className="info-label">Number of winners</div>
+                    <label className="field">
+                      <input
+                        inputMode="numeric"
+                        value={randCount}
+                        onChange={(e) =>
+                          setRandCount(
+                            String(e.target.value).replace(/[^\d]/g, "")
+                          )
+                        }
+                        placeholder="1"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="info">
+                    <div className="info-label">Allow duplicates</div>
+                    <label className="field" style={{ gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={randAllowDup}
+                        onChange={(e) => setRandAllowDup(e.target.checked)}
+                        style={{ width: 20, height: 20 }}
+                      />
+                      <span>Same choice can be picked multiple times</span>
+                    </label>
+                  </div>
+
+                  <div className="info">
+                    <div className="info-label">Seed (optional)</div>
+                    <label className="field">
+                      <input
+                        value={randSeed}
+                        onChange={(e) => setRandSeed(e.target.value)}
+                        placeholder="Word/number for repeatable results"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={runRandomizer}
+                    disabled={randWorking}
+                  >
+                    {randWorking ? "Randomizing…" : "Run Randomizer"}
+                  </button>
+
+                  {randResults?.length > 0 && (
+                    <>
+                      <div className="note">
+                        <strong style={{ display: "block", marginBottom: 6 }}>
+                          Results
+                        </strong>
+                        <ol style={{ margin: 0, paddingLeft: 18 }}>
+                          {randResults.map((r) => (
+                            <li key={`${r.rank}-${r.label}`}>{r.label}</li>
+                          ))}
+                        </ol>
+                      </div>
+                      <button className="btn btn-outline" onClick={copyResults}>
+                        Copy Results
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </section>
       </div>
