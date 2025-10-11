@@ -1,6 +1,7 @@
+// src/main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Existing flow
 import Home from "./pages/Home.jsx";
@@ -14,6 +15,9 @@ import CreateCollect from "./pages/CreateCollect.jsx";
 import CollectLanding from "./pages/CollectLanding.jsx";
 import CollectAdd from "./pages/CollectAdd.jsx";
 import CollectHost from "./pages/CollectHost.jsx";
+
+// NEW: Randomizer page
+import Randomize from "./pages/Randomize.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -33,6 +37,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/collect/:code" element={<CollectLanding />} />
         <Route path="/collect/:code/add" element={<CollectAdd />} />
         <Route path="/collect/:code/host" element={<CollectHost />} />
+
+        {/* NEW: Randomizer (no voting required) */}
+        <Route path="/randomize/:code" element={<Randomize />} />
+
+        {/* Fallback (prevents blank page on bad URLs) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
   </React.StrictMode>
