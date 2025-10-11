@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Vite config
-// - Uses BASE_PATH from the environment for GitHub Pages (e.g. "/the-secret-vote/")
-// - Falls back to "/" for local dev
+const isProd = process.env.NODE_ENV === 'production';
+
 export default defineConfig({
   plugins: [react()],
-  base: process.env.BASE_PATH || '/',
+  // on GH Pages the app lives under /secret-vote/
+  base: isProd ? '/secret-vote/' : '/',
 })
