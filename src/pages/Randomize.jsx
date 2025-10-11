@@ -23,7 +23,6 @@ function easeOutBack(t) {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-/* ================================================== */
 export default function Randomize() {
   const { code: raw } = useParams();
   const code = (raw || "").toUpperCase();
@@ -41,7 +40,7 @@ export default function Randomize() {
   const [losers, setLosers] = useState([]);
   const losersStagger = losers.map((_, i) => 40 * i);
 
-  // ticker
+  // ticker refs
   const windowRef = useRef(null);
   const railRef = useRef(null);
   const animRef = useRef(0);
@@ -96,7 +95,7 @@ export default function Randomize() {
     return "open";
   }, [poll]);
 
-  /* ---------- countdown → spin ---------- */
+  /* ---------- countdown → then request spin ---------- */
   const startCountdown = async () => {
     if (!N) return;
     setWinner(null);
@@ -109,18 +108,48 @@ export default function Randomize() {
     setCountNum(1);
     await new Promise((r) => setTimeout(r, 750));
     setCountNum(null);
-    startSpin();
+    // switch to spinning; actual spin starts once DOM is mounted (see useEffect below)
+    setPhase("spinning");
   };
 
+  /* ---------- start spin AFTER spinner DOM is mounted ---------- */
+  useEffect(() => {
+    if (phase !== "spinning") return;
+
+    // allow one frame so the ticker-window & rail mount
+    const id = requestAnimationFrame(() => {
+      safeStartSpin();
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  function safeStartSpin() {
+    try {
+      startSpin();
+    } catch (e) {
+      console.error(e);
+      // fail safe: go back to waiting UI instead of blank screen
+      setPhase("waiting");
+    }
+  }
+
   function startSpin() {
-    if (!windowRef.current || !railRef.current || !N) return;
-    setPhase("spinning");
+    const winEl = windowRef.current;
+    const rail = railRef.current;
+    if (!winEl || !rail || !N || !poll?.options?.length) {
+      // if not ready yet, try again very soon
+      setTimeout(() => {
+        if (phase === "spinning") safeStartSpin();
+      }, 50);
+      return;
+    }
 
     // pick a winner index among deduped options
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // build strip
+    // build strip: a few randoms → chosen → a few extras for visual balance
     const previewCount = Math.max(6, Math.min(14, Math.floor(rand(8, 12))));
     const preview = Array.from({ length: previewCount }, () => {
       const i = Math.floor(Math.random() * N);
@@ -128,7 +157,6 @@ export default function Randomize() {
     });
     const strip = [...preview, chosen, ...poll.options.slice(0, Math.min(8, N))];
 
-    const rail = railRef.current;
     rail.innerHTML = "";
     for (const txt of strip) {
       const el = document.createElement("div");
@@ -138,9 +166,16 @@ export default function Randomize() {
     }
 
     // measure and compute distance to center chosen
-    const winRect = windowRef.current.getBoundingClientRect();
+    const winRect = winEl.getBoundingClientRect();
     const items = Array.from(rail.querySelectorAll(".tk-item"));
     const target = items[preview.length];
+    if (!target) {
+      // rare race; try again
+      setTimeout(() => {
+        if (phase === "spinning") safeStartSpin();
+      }, 50);
+      return;
+    }
 
     const tRect = target.getBoundingClientRect();
     const tMid = tRect.left + tRect.width / 2;
@@ -205,6 +240,8 @@ export default function Randomize() {
     const c = confettiRef.current;
     if (!c) return;
     const ctx = c.getContext("2d");
+    if (!ctx) return;
+
     const rect = c.getBoundingClientRect();
     const box = document.querySelector(".winner-box");
     if (!box) return;
@@ -259,9 +296,14 @@ export default function Randomize() {
       const cvs = confettiRef.current;
       if (!cvs) return;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
-      cvs.width = Math.floor(cvs.clientWidth * dpr);
-      cvs.height = Math.floor(cvs.clientHeight * dpr);
-      cvs.getContext("2d").scale(dpr, dpr);
+      const w = cvs.clientWidth || 0;
+      const h = cvs.clientHeight || 0;
+      const ctx = cvs.getContext("2d");
+      if (!ctx) return;
+      cvs.width = Math.floor(w * dpr);
+      cvs.height = Math.floor(h * dpr);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
     };
     onResize();
     window.addEventListener("resize", onResize);
