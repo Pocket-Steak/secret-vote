@@ -1,20 +1,13 @@
-// src/App.jsx
-import { Routes, Route, Navigate } from "react-router-dom";
-
 // existing pages
 import Home from "./pages/Home.jsx";
 import Create from "./pages/Create.jsx";
-import Landing from "./pages/Landing.jsx";     // /room/:code
+import Landing from "./pages/Landing.jsx";     // your /room/:code page
 import Vote from "./pages/Vote.jsx";
 import Results from "./pages/Results.jsx";
 
-// NEW (already had)
+// NEW pages
 import CreateCollect from "./pages/CreateCollect.jsx";
 import CollectRoom from "./pages/CollectRoom.jsx";
-
-// NEW (add these)
-import CollectHost from "./pages/CollectHost.jsx";
-import Randomize from "./pages/Randomize.jsx";
 
 export default function App() {
   return (
@@ -29,14 +22,9 @@ export default function App() {
         <Route path="/vote/:code" element={<Vote />} />
         <Route path="/results/:code" element={<Results />} />
 
-        {/* Collect flow */}
+        {/* NEW: collect options first */}
         <Route path="/create-collect" element={<CreateCollect />} />
         <Route path="/collect/:code" element={<CollectRoom />} />
-        {/* Host options for a collect room */}
-        <Route path="/collect/:code/host" element={<CollectHost />} />
-
-        {/* Randomizer (no voting required) */}
-        <Route path="/randomize/:code" element={<Randomize />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
