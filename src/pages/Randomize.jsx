@@ -17,6 +17,9 @@ function dedupeOptions(rawOptions) {
 }
 const rand = (a, b) => Math.random() * (b - a) + a;
 
+/* =========================================================
+   Randomize (VERTICAL REEL)
+========================================================= */
 export default function Randomize() {
   const { code: raw } = useParams();
   const code = (raw || "").toUpperCase();
@@ -33,7 +36,7 @@ export default function Randomize() {
   const [winner, setWinner] = useState(null);
   const [losers, setLosers] = useState([]);
 
-  // ticker refs
+  // reel refs
   const windowRef = useRef(null);
   const railRef = useRef(null);
   const animRef = useRef(0);
@@ -128,6 +131,7 @@ export default function Randomize() {
     return arr;
   }
 
+  /* ---------- vertical reel spin ---------- */
   function startSpin() {
     const winEl = windowRef.current;
     const rail = railRef.current;
@@ -138,86 +142,84 @@ export default function Randomize() {
       return;
     }
 
-    // pick a winner from the de-duped options
+    // winner among de-duped options
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // Repeat the options a few times so we can land in the *middle* copy.
+    // Build repeated strip (top, middle, bottom blocks) so we can land in the middle one.
     const repeats = 3;
     const stripLabels = Array.from({ length: repeats * N }, (_, i) => poll.options[i % N]);
-    const middleStart = N;                       // start index of middle block
-    const middleTarget = middleStart + winIdx;  // where we want to center
+    const middleStart = N;
+    const middleTarget = middleStart + winIdx;
 
-    // Mount items
+    // Mount items (vertical)
     rail.innerHTML = "";
     const els = [];
     for (let i = 0; i < stripLabels.length; i++) {
       const el = document.createElement("div");
-      el.className = "tk-item";
+      el.className = "reel-item";
       el.textContent = stripLabels[i];
       rail.appendChild(el);
       els.push(el);
     }
 
-    // Measurements
+    // Measure things
     const winRect = winEl.getBoundingClientRect();
-    const centerX = winRect.left + winRect.width / 2;
+    const winMidY = winRect.top + winRect.height / 2;
 
-    const itemMid = (idx) => {
+    const itemMidY = (idx) => {
       const r = els[idx].getBoundingClientRect();
-      return r.left + r.width / 2;
+      return r.top + r.height / 2;
     };
 
-    const targetMid = itemMid(middleTarget);
-    const baseDistance = targetMid - centerX;          // how far to center the target
-    const overshoot = Math.min(160, winRect.width * 0.12);
+    const targetMidY = itemMidY(middleTarget);
+    const baseDistance = targetMidY - winMidY;  // how far to move UP so target lands in center
+    const overshoot = Math.min(120, winRect.height * 0.16);
     const totalDistance = baseDistance + overshoot;
 
-    // Per-frame: update self-glow based on distance from center
+    // Live focus glow based on distance from center (vertical)
     const updateGlow = () => {
-      const span = winRect.width * 0.5; // glow reach
+      const span = winRect.height * 0.6; // reach of glow
       for (const el of els) {
         const r = el.getBoundingClientRect();
-        const mid = r.left + r.width / 2;
-        const d = Math.abs(mid - centerX);
-        const focus = Math.max(0, 1 - d / span); // 1 at center → 0 at edge
+        const mid = r.top + r.height / 2;
+        const d = Math.abs(mid - winMidY);
+        const focus = Math.max(0, 1 - d / span); // 1 at center → 0 away
         el.style.setProperty("--focus", focus.toFixed(3));
       }
     };
 
-    // Animate to overshoot, then settle back
+    // animate: translateY negative to move items up
     const duration = 2700 + Math.random() * 900;
     const settleMs = 450;
     const t0 = performance.now();
-    let stopped = false;
+    let didBack = false;
 
     cancelAnimationFrame(animRef.current);
     const step = (ts) => {
       const p = Math.min(1, (ts - t0) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      const x = -totalDistance * eased;
-      rail.style.transform = `translate3d(${x}px,0,0)`;
+      const y = -totalDistance * eased;
+      rail.style.transform = `translate3d(0, ${y}px, 0)`;
       updateGlow();
 
       if (p < 1) {
         animRef.current = requestAnimationFrame(step);
-      } else if (!stopped) {
-        stopped = true;
+      } else if (!didBack) {
+        didBack = true;
         const startBack = performance.now();
-        const finalTarget = x + overshoot;
-
+        const finalTarget = y + overshoot;
         const back = (tt) => {
           const pp = Math.min(1, (tt - startBack) / settleMs);
-          // easeOutBack-like curve
+          // easeOutBack-like
           const c1 = 1.10158, c3 = c1 + 1;
           const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
-          const nx = finalTarget + (0 - finalTarget) * eob;
-          rail.style.transform = `translate3d(${nx}px,0,0)`;
+          const ny = finalTarget + (0 - finalTarget) * eob;
+          rail.style.transform = `translate3d(0, ${ny}px, 0)`;
           updateGlow();
 
-          if (pp < 1) {
-            requestAnimationFrame(back);
-          } else {
+          if (pp < 1) requestAnimationFrame(back);
+          else {
             els[middleTarget]?.classList.add("winner");
             const L = poll.options.slice();
             L.splice(winIdx, 1);
@@ -270,18 +272,20 @@ export default function Randomize() {
 
     const step = () => {
       const t = performance.now() - start;
-      ctx.clearRect(0, 0, c.width, c.height);
+      const ctx2 = c.getContext("2d");
+      if (!ctx2) return;
+      ctx2.clearRect(0, 0, c.width, c.height);
       for (const p of parts) {
         p.vy += p.g;
         p.x += p.vx;
         p.y += p.vy;
         p.rot += p.vr;
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.fillStyle = p.col;
-        ctx.fillRect(-p.s, -p.s, p.s * 2, p.s * 2);
-        ctx.restore();
+        ctx2.save();
+        ctx2.translate(p.x, p.y);
+        ctx2.rotate(p.rot);
+        ctx2.fillStyle = p.col;
+        ctx2.fillRect(-p.s, -p.s, p.s * 2, p.s * 2);
+        ctx2.restore();
       }
       if (t < 1600) confettiRaf.current = requestAnimationFrame(step);
     };
@@ -377,14 +381,14 @@ export default function Randomize() {
           )}
 
           {(phase === "spinning" || phase === "revealed") && (
-            <div className="ticker-area">
+            <div className="reel-area">
               <div className="confetti-layer">
                 <canvas ref={confettiRef} className="confetti-canvas" />
               </div>
 
-              <div className="ticker-window" ref={windowRef}>
-                <div className="ticker-rail" ref={railRef} />
-                {/* no highlight frame */}
+              <div className="reel-window" ref={windowRef}>
+                <div className="reel-rail" ref={railRef} />
+                {/* no visible frame; center indicated by edge vignette */}
               </div>
 
               {phase === "revealed" && winner && (
@@ -539,43 +543,41 @@ function ThemeStyles() {
 .count-num{font-size:min(24vw,170px);font-weight:900;text-shadow:0 6px 26px rgba(0,0,0,.55), 0 0 30px rgba(255,140,0,.45);color:#ffe0b3;animation:pop .75s ease forwards}
 @keyframes pop{0%{transform:scale(.6);opacity:.2}80%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
 
-/* ticker (no orange frame) */
-.ticker-area{position:relative;margin-top:10px}
-.ticker-window{
-  position:relative;border-radius:14px;border:1px solid rgba(255,255,255,.08);
+/* ========= VERTICAL REEL ========= */
+.reel-area{position:relative;margin-top:10px}
+.reel-window{
+  position:relative; height:220px; /* visible slot window */
+  border-radius:14px; border:1px solid rgba(255,255,255,.08);
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));
-  overflow:hidden;height:84px;
-  /* soft edge vignette so the center feels focused */
-  mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  overflow:hidden;
+  /* vignette top/bottom; guides eyes to middle without a frame */
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
-.ticker-rail{display:flex;gap:12px;align-items:center;padding:0 18px;will-change:transform}
-.ticker-highlight{display:none !important;} /* kill old frame */
+.reel-rail{display:flex; flex-direction:column; gap:10px; padding:12px 14px; will-change:transform}
 
-/* Items self-glow while passing center. JS updates --focus per frame. */
-.tk-item{
-  --focus: 0; /* [0..1] */
-  flex:0 0 auto; min-width:120px; text-align:center;
-  padding:12px 16px; border-radius:12px; font-weight:800;
+.reel-item{
+  --focus: 0; /* 0..1 set by JS */
+  min-height:56px; display:flex; align-items:center; justify-content:center;
+  border-radius:12px; padding:8px 12px; font-weight:900;
   background:#131a2a; color:var(--ink); border:1px solid #2b3246;
   transform: scale(calc(1 + 0.06*var(--focus)));
   box-shadow:
-    0 0 calc(24px*var(--focus)) rgba(255,140,0, calc(.28*var(--focus))),
+    0 0 calc(26px*var(--focus)) rgba(255,140,0, calc(.30*var(--focus))),
     0 1px 0 rgba(255,255,255,.05) inset;
   transition: transform .08s linear, box-shadow .08s linear;
+  text-align:center;
 }
-
-/* Winner pulse */
-.tk-item.winner{
+.reel-item.winner{
   animation: winnerPulse 1400ms ease-out 1;
   box-shadow:
-    0 0 28px rgba(255,140,0,.45),
-    0 0 8px rgba(255,140,0,.45) inset;
+    0 0 30px rgba(255,140,0,.45),
+    0 0 10px rgba(255,140,0,.45) inset;
 }
 @keyframes winnerPulse{
-  0%{ transform:scale(1); }
-  40%{ transform:scale(1.08); }
-  100%{ transform:scale(1.02); }
+  0%{ transform:scale(1) }
+  40%{ transform:scale(1.08) }
+  100%{ transform:scale(1.02) }
 }
 
 /* results */
