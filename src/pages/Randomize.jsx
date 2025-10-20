@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-/* ---------- keep your working data parts ---------- */
+/* ---------- helpers ---------- */
 function dedupeOptions(rawOptions) {
   if (!Array.isArray(rawOptions)) return [];
   const seen = new Set();
@@ -16,12 +16,6 @@ function dedupeOptions(rawOptions) {
   });
 }
 const rand = (a, b) => Math.random() * (b - a) + a;
-const lerp = (a, b, t) => a + (b - a) * t;
-function easeOutBack(t) {
-  const c1 = 1.10158;
-  const c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-}
 
 export default function Randomize() {
   const { code: raw } = useParams();
@@ -38,7 +32,6 @@ export default function Randomize() {
 
   const [winner, setWinner] = useState(null);
   const [losers, setLosers] = useState([]);
-  const losersStagger = losers.map((_, i) => 40 * i);
 
   // ticker refs
   const windowRef = useRef(null);
@@ -52,7 +45,7 @@ export default function Randomize() {
 
   const N = poll?.options?.length ?? 0;
 
-  /* ---------- load from polls (your original) ---------- */
+  /* ---------- load poll ---------- */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -95,7 +88,7 @@ export default function Randomize() {
     return "open";
   }, [poll]);
 
-  /* ---------- countdown → then request spin ---------- */
+  /* ---------- countdown ---------- */
   const startCountdown = async () => {
     if (!N) return;
     setWinner(null);
@@ -108,26 +101,31 @@ export default function Randomize() {
     setCountNum(1);
     await new Promise((r) => setTimeout(r, 750));
     setCountNum(null);
-    setPhase("spinning"); // actual spin kicks after DOM mounts
+    setPhase("spinning");
   };
 
-  /* ---------- start spin AFTER spinner DOM is mounted ---------- */
+  /* ---------- start spin when DOM is ready ---------- */
   useEffect(() => {
     if (phase !== "spinning") return;
     const id = requestAnimationFrame(() => {
-      safeStartSpin();
+      try {
+        startSpin();
+      } catch (e) {
+        console.error(e);
+        setPhase("waiting");
+      }
     });
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  function safeStartSpin() {
-    try {
-      startSpin();
-    } catch (e) {
-      console.error(e);
-      setPhase("waiting");
+  function shuffle(a) {
+    const arr = a.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
   }
 
   function startSpin() {
@@ -135,79 +133,92 @@ export default function Randomize() {
     const rail = railRef.current;
     if (!winEl || !rail || !N || !poll?.options?.length) {
       setTimeout(() => {
-        if (phase === "spinning") safeStartSpin();
+        if (phase === "spinning") startSpin();
       }, 50);
       return;
     }
 
-    // pick a winner index among deduped options
+    // pick a winner from the de-duped options
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // build strip: a few randoms → chosen → a few extras
-    const previewCount = Math.max(6, Math.min(14, Math.floor(rand(8, 12))));
-    const preview = Array.from({ length: previewCount }, () => {
-      const i = Math.floor(Math.random() * N);
-      return poll.options[i];
-    });
-    const strip = [...preview, chosen, ...poll.options.slice(0, Math.min(8, N))];
+    // Repeat the options a few times so we can land in the *middle* copy.
+    const repeats = 3;
+    const stripLabels = Array.from({ length: repeats * N }, (_, i) => poll.options[i % N]);
+    const middleStart = N;                       // start index of middle block
+    const middleTarget = middleStart + winIdx;  // where we want to center
 
+    // Mount items
     rail.innerHTML = "";
-    for (const txt of strip) {
+    const els = [];
+    for (let i = 0; i < stripLabels.length; i++) {
       const el = document.createElement("div");
       el.className = "tk-item";
-      el.textContent = txt;
+      el.textContent = stripLabels[i];
       rail.appendChild(el);
+      els.push(el);
     }
 
-    // measure and compute distance to center chosen
+    // Measurements
     const winRect = winEl.getBoundingClientRect();
-    const items = Array.from(rail.querySelectorAll(".tk-item"));
-    const target = items[preview.length]; // the chosen one in the strip
-    if (!target) {
-      setTimeout(() => {
-        if (phase === "spinning") safeStartSpin();
-      }, 50);
-      return;
-    }
+    const centerX = winRect.left + winRect.width / 2;
 
-    const tRect = target.getBoundingClientRect();
-    const tMid = tRect.left + tRect.width / 2;
-    const winMid = winRect.left + winRect.width / 2;
+    const itemMid = (idx) => {
+      const r = els[idx].getBoundingClientRect();
+      return r.left + r.width / 2;
+    };
 
-    const overshoot = 0.12 * winRect.width;
-    const baseDistance = tMid - winMid;
+    const targetMid = itemMid(middleTarget);
+    const baseDistance = targetMid - centerX;          // how far to center the target
+    const overshoot = Math.min(160, winRect.width * 0.12);
     const totalDistance = baseDistance + overshoot;
 
-    const duration = rand(2700, 3600);
+    // Per-frame: update self-glow based on distance from center
+    const updateGlow = () => {
+      const span = winRect.width * 0.5; // glow reach
+      for (const el of els) {
+        const r = el.getBoundingClientRect();
+        const mid = r.left + r.width / 2;
+        const d = Math.abs(mid - centerX);
+        const focus = Math.max(0, 1 - d / span); // 1 at center → 0 at edge
+        el.style.setProperty("--focus", focus.toFixed(3));
+      }
+    };
+
+    // Animate to overshoot, then settle back
+    const duration = 2700 + Math.random() * 900;
     const settleMs = 450;
-    const startX = 0;
-    const targetX = -totalDistance;
     const t0 = performance.now();
+    let stopped = false;
 
     cancelAnimationFrame(animRef.current);
     const step = (ts) => {
       const p = Math.min(1, (ts - t0) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      const x = lerp(startX, targetX, eased);
+      const x = -totalDistance * eased;
       rail.style.transform = `translate3d(${x}px,0,0)`;
+      updateGlow();
 
       if (p < 1) {
         animRef.current = requestAnimationFrame(step);
-      } else {
-        // bounce back
+      } else if (!stopped) {
+        stopped = true;
+        const startBack = performance.now();
         const finalTarget = x + overshoot;
-        const t1 = performance.now();
-        const back = () => {
-          const pp = Math.min(1, (performance.now() - t1) / settleMs);
-          const out = easeOutBack(1 - pp);
-          const nx = finalTarget + (0 - finalTarget) * out;
-          rail.style.transform = `translate3d(${nx}px,0,0)`;
-          if (pp < 1) requestAnimationFrame(back);
-          else {
-            // mark winner item for strong glow
-            if (target) target.classList.add("is-winner");
 
+        const back = (tt) => {
+          const pp = Math.min(1, (tt - startBack) / settleMs);
+          // easeOutBack-like curve
+          const c1 = 1.10158, c3 = c1 + 1;
+          const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
+          const nx = finalTarget + (0 - finalTarget) * eob;
+          rail.style.transform = `translate3d(${nx}px,0,0)`;
+          updateGlow();
+
+          if (pp < 1) {
+            requestAnimationFrame(back);
+          } else {
+            els[middleTarget]?.classList.add("winner");
             const L = poll.options.slice();
             L.splice(winIdx, 1);
             setWinner(chosen);
@@ -220,15 +231,6 @@ export default function Randomize() {
       }
     };
     animRef.current = requestAnimationFrame(step);
-  }
-
-  function shuffle(a) {
-    const arr = a.slice();
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
   }
 
   /* ---------- confetti around winner box ---------- */
@@ -380,12 +382,9 @@ export default function Randomize() {
                 <canvas ref={confettiRef} className="confetti-canvas" />
               </div>
 
-              {/* highlight frame removed; we only toggle a 'spinning' class */}
-              <div
-                className={`ticker-window ${phase === "spinning" ? "spinning" : ""}`}
-                ref={windowRef}
-              >
+              <div className="ticker-window" ref={windowRef}>
                 <div className="ticker-rail" ref={railRef} />
+                {/* no highlight frame */}
               </div>
 
               {phase === "revealed" && winner && (
@@ -426,7 +425,7 @@ export default function Randomize() {
                       <div className="losers-hdr">Losers</div>
                       <ul className="losers-list">
                         {losers.map((l, i) => (
-                          <li key={`${i}-${l}`} style={{ animationDelay: `${losersStagger[i]}ms` }}>
+                          <li key={`${i}-${l}`}>
                             <span className="x">✖</span>
                             <span className="text">{l}</span>
                           </li>
@@ -540,37 +539,43 @@ function ThemeStyles() {
 .count-num{font-size:min(24vw,170px);font-weight:900;text-shadow:0 6px 26px rgba(0,0,0,.55), 0 0 30px rgba(255,140,0,.45);color:#ffe0b3;animation:pop .75s ease forwards}
 @keyframes pop{0%{transform:scale(.6);opacity:.2}80%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
 
-/* ticker (frame removed; item-based glow instead) */
+/* ticker (no orange frame) */
 .ticker-area{position:relative;margin-top:10px}
 .ticker-window{
-  position:relative; border-radius:14px;
-  border:1px solid rgba(255,255,255,.08);
+  position:relative;border-radius:14px;border:1px solid rgba(255,255,255,.08);
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));
-  overflow:hidden; height:84px;
+  overflow:hidden;height:84px;
+  /* soft edge vignette so the center feels focused */
+  mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
 }
 .ticker-rail{display:flex;gap:12px;align-items:center;padding:0 18px;will-change:transform}
+.ticker-highlight{display:none !important;} /* kill old frame */
+
+/* Items self-glow while passing center. JS updates --focus per frame. */
 .tk-item{
-  flex:0 0 auto;padding:12px 16px;border-radius:12px;font-weight:800;
-  background:#131a2a;color:var(--ink);border:1px solid #2b3246;
-  min-width:120px;text-align:center;
-  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
-}
-/* During spin: all items softly pulse */
-.ticker-window.spinning .tk-item{
-  animation: itemGlow 900ms ease-in-out infinite alternate;
-}
-@keyframes itemGlow{
-  from { box-shadow: 0 0 0 rgba(255,140,0,0); border-color:#2b3246; }
-  to   { box-shadow: 0 0 14px rgba(255,140,0,.35); border-color: rgba(255,140,0,.45); }
-}
-/* Winner: stronger glow + slight scale pop */
-.tk-item.is-winner{
-  animation: none;
+  --focus: 0; /* [0..1] */
+  flex:0 0 auto; min-width:120px; text-align:center;
+  padding:12px 16px; border-radius:12px; font-weight:800;
+  background:#131a2a; color:var(--ink); border:1px solid #2b3246;
+  transform: scale(calc(1 + 0.06*var(--focus)));
   box-shadow:
-    0 0 28px rgba(255,140,0,.60),
-    0 0 10px rgba(255,140,0,.45) inset;
-  border-color: rgba(255,140,0,.90);
-  transform: scale(1.04);
+    0 0 calc(24px*var(--focus)) rgba(255,140,0, calc(.28*var(--focus))),
+    0 1px 0 rgba(255,255,255,.05) inset;
+  transition: transform .08s linear, box-shadow .08s linear;
+}
+
+/* Winner pulse */
+.tk-item.winner{
+  animation: winnerPulse 1400ms ease-out 1;
+  box-shadow:
+    0 0 28px rgba(255,140,0,.45),
+    0 0 8px rgba(255,140,0,.45) inset;
+}
+@keyframes winnerPulse{
+  0%{ transform:scale(1); }
+  40%{ transform:scale(1.08); }
+  100%{ transform:scale(1.02); }
 }
 
 /* results */
