@@ -1,4 +1,4 @@
-// src/pages/Randomize.jsx
+// src/pages/Randomize.jsx  (BLUE TEST BUILD)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -18,7 +18,7 @@ function dedupeOptions(rawOptions) {
 const rand = (a, b) => Math.random() * (b - a) + a;
 
 /* =========================================================
-   Randomize (VERTICAL REEL)
+   Randomize (VERTICAL REEL • BLUE TEST)
 ========================================================= */
 export default function Randomize() {
   const { code: raw } = useParams();
@@ -142,17 +142,14 @@ export default function Randomize() {
       return;
     }
 
-    // winner among de-duped options
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // Build repeated strip (top, middle, bottom blocks) so we can land in the middle one.
     const repeats = 3;
     const stripLabels = Array.from({ length: repeats * N }, (_, i) => poll.options[i % N]);
     const middleStart = N;
     const middleTarget = middleStart + winIdx;
 
-    // Mount items (vertical)
     rail.innerHTML = "";
     const els = [];
     for (let i = 0; i < stripLabels.length; i++) {
@@ -163,7 +160,6 @@ export default function Randomize() {
       els.push(el);
     }
 
-    // Measure things
     const winRect = winEl.getBoundingClientRect();
     const winMidY = winRect.top + winRect.height / 2;
 
@@ -173,23 +169,22 @@ export default function Randomize() {
     };
 
     const targetMidY = itemMidY(middleTarget);
-    const baseDistance = targetMidY - winMidY;  // how far to move UP so target lands in center
+    const baseDistance = targetMidY - winMidY;
     const overshoot = Math.min(120, winRect.height * 0.16);
     const totalDistance = baseDistance + overshoot;
 
-    // Live focus glow based on distance from center (vertical)
+    // Live glow based on distance to center
     const updateGlow = () => {
-      const span = winRect.height * 0.6; // reach of glow
+      const span = winRect.height * 0.6;
       for (const el of els) {
         const r = el.getBoundingClientRect();
         const mid = r.top + r.height / 2;
         const d = Math.abs(mid - winMidY);
-        const focus = Math.max(0, 1 - d / span); // 1 at center → 0 away
+        const focus = Math.max(0, 1 - d / span);
         el.style.setProperty("--focus", focus.toFixed(3));
       }
     };
 
-    // animate: translateY negative to move items up
     const duration = 2700 + Math.random() * 900;
     const settleMs = 450;
     const t0 = performance.now();
@@ -211,7 +206,6 @@ export default function Randomize() {
         const finalTarget = y + overshoot;
         const back = (tt) => {
           const pp = Math.min(1, (tt - startBack) / settleMs);
-          // easeOutBack-like
           const c1 = 1.10158, c3 = c1 + 1;
           const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
           const ny = finalTarget + (0 - finalTarget) * eob;
@@ -250,7 +244,7 @@ export default function Randomize() {
     const cy = (b.top + b.bottom) / 2 - rect.top;
 
     const parts = [];
-    const colors = ["#ff8c00", "#ffd28a", "#7ad3ff", "#c58cff", "#7affb6", "#ff7a7a"];
+    const colors = ["#4da3ff", "#8cc7ff", "#7ad3ff", "#c1e0ff", "#a8c8ff", "#7fb8ff"];
     const count = 90 + Math.floor(Math.random() * 35) + replayBump;
 
     for (let i = 0; i < count; i++) {
@@ -351,7 +345,10 @@ export default function Randomize() {
         <section className="card section">
           <div className="head-row">
             <h1 className="hdr">Randomizer — {poll.title || `Room ${code}`}</h1>
-            <span className="badge">Code: {code}</span>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <span className="chip chip-blue">BLUE TEST</span>
+              <span className="badge">Code: {code}</span>
+            </div>
           </div>
           <p className="help" style={{ marginTop: -6 }}>
             Using the same options the voting page sees. Options available: <strong>{N}</strong>
@@ -388,7 +385,6 @@ export default function Randomize() {
 
               <div className="reel-window" ref={windowRef}>
                 <div className="reel-rail" ref={railRef} />
-                {/* no visible frame; center indicated by edge vignette */}
               </div>
 
               {phase === "revealed" && winner && (
@@ -495,20 +491,20 @@ function DinoHerd() {
   );
 }
 
-/* ---------- styles ---------- */
+/* ---------- styles (BLUE ACCENT) ---------- */
 function ThemeStyles() {
   const CSS = String.raw`
 :root{
-  --bg:#0e1116; --panel:#1a1f27; --ink:#f5efe6; --muted:#bfc6d3;
-  --accent:#ff8c00; --accent-2:#ffb25a; --container: min(980px, 96vw);
+  --bg:#0e1116; --panel:#101622; --ink:#eef3ff; --muted:#a8b5d4;
+  --accent:#4da3ff; --accent-2:#8cc7ff; --container: min(980px, 96vw);
 }
 *{box-sizing:border-box} html,body,#root{min-height:100%} body{margin:0;background:var(--bg);color:var(--ink)}
 .wrap{
   min-height:100vh; display:flex; flex-direction:column; align-items:center; gap:12px;
   padding:max(16px,env(safe-area-inset-top)) 18px max(16px,env(safe-area-inset-bottom));
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,.08), transparent 60%),
-    radial-gradient(800px 400px at 100% 0%, rgba(255,140,0,.05), transparent 60%),
+    radial-gradient(1200px 600px at 50% -10%, rgba(77,163,255,.10), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, rgba(140,199,255,.08), transparent 60%),
     var(--bg);
 }
 .col{display:flex; flex-direction:column; align-items:center; gap:16px; width:var(--container)}
@@ -521,17 +517,19 @@ function ThemeStyles() {
 .help{color:var(--muted);font-size:.96rem;margin:.2rem 0 0}
 .section{margin:4px 0 6px}
 .head-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.badge{padding:6px 12px;border-radius:999px;background:linear-gradient(180deg,rgba(255,140,0,.10),rgba(255,140,0,.06));border:1px solid rgba(255,140,0,.45);color:#ffb25a;font-weight:700;font-size:.9rem}
+.badge{padding:6px 12px;border-radius:999px;background:linear-gradient(180deg,rgba(77,163,255,.12),rgba(140,199,255,.08));border:1px solid rgba(77,163,255,.65);color:#b7dbff;font-weight:700;font-size:.9rem}
+.chip{padding:6px 10px;border-radius:10px;font-weight:800;font-size:.8rem}
+.chip-blue{background:rgba(77,163,255,.16);border:1px solid rgba(77,163,255,.65);color:#b7dbff}
 .stack{display:flex;flex-direction:column;gap:12px}
 .btn{appearance:none;border:none;cursor:pointer;font-weight:800;border-radius:14px;padding:14px 18px;width:100%}
 .btn[disabled]{opacity:.7;cursor:not-allowed}
-.btn-primary{color:#1a1005;background:linear-gradient(180deg,var(--accent-2),var(--accent));box-shadow:0 10px 18px rgba(255,140,0,.28), 0 2px 0 rgba(255,140,0,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset}
-.btn-outline{color:var(--accent-2);background:linear-gradient(180deg,rgba(255,140,0,.08),rgba(255,140,0,.04));border:1px solid rgba(255,140,0,.45);box-shadow:0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset}
+.btn-primary{color:#06121f;background:linear-gradient(180deg,var(--accent-2),var(--accent));box-shadow:0 10px 18px rgba(77,163,255,.28), 0 2px 0 rgba(77,163,255,.9) inset, 0 1px 0 rgba(255,255,255,.35) inset}
+.btn-outline{color:#bfe0ff;background:linear-gradient(180deg,rgba(77,163,255,.10),rgba(77,163,255,.06));border:1px solid rgba(77,163,255,.65);box-shadow:0 6px 14px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) inset}
 .error{ color:#ff6b6b; font-size:.95rem; margin-top:8px }
 
 /* waiting dino herd */
 .dino-herd-wrap{position:relative;height:80px;overflow:hidden;margin:12px 0;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
-.dino-ground{position:absolute;left:0;right:0;bottom:4px;height:3px;background:repeating-linear-gradient(90deg,#555 0 16px,transparent 16px 28px);opacity:.6;animation:ground 1.2s linear infinite}
+.dino-ground{position:absolute;left:0;right:0;bottom:4px;height:3px;background:repeating-linear-gradient(90deg,#3d4e73 0 16px,transparent 16px 28px);opacity:.6;animation:ground 1.2s linear infinite}
 @keyframes ground{to{transform:translateX(-28px)}}
 .dino-herd{position:absolute;inset:0}
 .dino{position:absolute;bottom:10px;font-size:34px;line-height:1;transform:translateX(105vw);animation:runAcross linear infinite;will-change:transform}
@@ -539,31 +537,30 @@ function ThemeStyles() {
 .waiting-text{text-align:center;color:var(--muted);margin:6px 0 0;font-size:1rem}
 
 /* countdown */
-.count-overlay{position:fixed;inset:0;background:rgba(4,6,10,.65);display:grid;place-items:center;z-index:50;backdrop-filter:blur(2px)}
-.count-num{font-size:min(24vw,170px);font-weight:900;text-shadow:0 6px 26px rgba(0,0,0,.55), 0 0 30px rgba(255,140,0,.45);color:#ffe0b3;animation:pop .75s ease forwards}
+.count-overlay{position:fixed;inset:0;background:rgba(4,8,14,.65);display:grid;place-items:center;z-index:50;backdrop-filter:blur(2px)}
+.count-num{font-size:min(24vw,170px);font-weight:900;text-shadow:0 6px 26px rgba(0,0,0,.55), 0 0 30px rgba(77,163,255,.45);color:#dff0ff;animation:pop .75s ease forwards}
 @keyframes pop{0%{transform:scale(.6);opacity:.2}80%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
 
-/* ========= VERTICAL REEL ========= */
+/* ========= VERTICAL REEL (BLUE) ========= */
 .reel-area{position:relative;margin-top:10px}
 .reel-window{
-  position:relative; height:220px; /* visible slot window */
+  position:relative; height:220px;
   border-radius:14px; border:1px solid rgba(255,255,255,.08);
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));
   overflow:hidden;
-  /* vignette top/bottom; guides eyes to middle without a frame */
   mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
 .reel-rail{display:flex; flex-direction:column; gap:10px; padding:12px 14px; will-change:transform}
 
 .reel-item{
-  --focus: 0; /* 0..1 set by JS */
+  --focus: 0;
   min-height:56px; display:flex; align-items:center; justify-content:center;
   border-radius:12px; padding:8px 12px; font-weight:900;
-  background:#131a2a; color:var(--ink); border:1px solid #2b3246;
+  background:#0f1726; color:var(--ink); border:1px solid #2a3550;
   transform: scale(calc(1 + 0.06*var(--focus)));
   box-shadow:
-    0 0 calc(26px*var(--focus)) rgba(255,140,0, calc(.30*var(--focus))),
+    0 0 calc(26px*var(--focus)) rgba(77,163,255, calc(.33*var(--focus))),
     0 1px 0 rgba(255,255,255,.05) inset;
   transition: transform .08s linear, box-shadow .08s linear;
   text-align:center;
@@ -571,8 +568,8 @@ function ThemeStyles() {
 .reel-item.winner{
   animation: winnerPulse 1400ms ease-out 1;
   box-shadow:
-    0 0 30px rgba(255,140,0,.45),
-    0 0 10px rgba(255,140,0,.45) inset;
+    0 0 34px rgba(77,163,255,.55),
+    0 0 12px rgba(77,163,255,.55) inset;
 }
 @keyframes winnerPulse{
   0%{ transform:scale(1) }
@@ -582,17 +579,17 @@ function ThemeStyles() {
 
 /* results */
 .result-wrap{margin-top:14px;display:flex;flex-direction:column;gap:12px}
-.winner-box{position:relative;padding:16px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.14));border:1px solid rgba(255,140,0,.45)}
-.winner-title{color:#ffdda8;font-weight:800}
+.winner-box{position:relative;padding:16px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.14));border:1px solid rgba(77,163,255,.55)}
+.winner-title{color:#cfe7ff;font-weight:800}
 .winner-value{font-size:1.6rem;font-weight:900}
 .mini-dino{font-size:44px;align-self:center;filter:drop-shadow(0 8px 10px rgba(0,0,0,.4))}
 .glow{animation:glowPulse 2200ms ease-out 1}
-@keyframes glowPulse{0%{box-shadow:0 0 0 0 rgba(255,140,0,.0)}40%{box-shadow:0 0 22px 6px rgba(255,140,0,.35)}100%{box-shadow:0 0 0 0 rgba(255,140,0,.0)}}
+@keyframes glowPulse{0%{box-shadow:0 0 0 0 rgba(77,163,255,.0)}40%{box-shadow:0 0 22px 6px rgba(77,163,255,.38)}100%{box-shadow:0 0 0 0 rgba(77,163,255,.0)}}
 .actions{display:flex;gap:12px;flex-wrap:wrap}
 .losers{margin-top:6px}
 .losers-hdr{font-weight:800;color:var(--muted);margin-bottom:6px}
 .losers-list{list-style:none;padding:0;margin:0;display:grid;gap:6px}
-.losers-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#111728;border:1px solid #263149;color:#aeb7c7;opacity:0;transform:translateY(6px);animation:loserIn .36s ease forwards}
+.losers-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#0d1320;border:1px solid #1f2a44;color:#b9c8e6;opacity:0;transform:translateY(6px);animation:loserIn .36s ease forwards}
 @keyframes loserIn{to{opacity:1;transform:translateY(0)}}
 .losers-list .text{text-decoration:line-through}
 
