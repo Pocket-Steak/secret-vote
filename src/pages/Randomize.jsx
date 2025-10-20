@@ -108,15 +108,12 @@ export default function Randomize() {
     setCountNum(1);
     await new Promise((r) => setTimeout(r, 750));
     setCountNum(null);
-    // switch to spinning; actual spin starts once DOM is mounted (see useEffect below)
-    setPhase("spinning");
+    setPhase("spinning"); // actual spin kicks after DOM mounts
   };
 
   /* ---------- start spin AFTER spinner DOM is mounted ---------- */
   useEffect(() => {
     if (phase !== "spinning") return;
-
-    // allow one frame so the ticker-window & rail mount
     const id = requestAnimationFrame(() => {
       safeStartSpin();
     });
@@ -129,7 +126,6 @@ export default function Randomize() {
       startSpin();
     } catch (e) {
       console.error(e);
-      // fail safe: go back to waiting UI instead of blank screen
       setPhase("waiting");
     }
   }
@@ -138,7 +134,6 @@ export default function Randomize() {
     const winEl = windowRef.current;
     const rail = railRef.current;
     if (!winEl || !rail || !N || !poll?.options?.length) {
-      // if not ready yet, try again very soon
       setTimeout(() => {
         if (phase === "spinning") safeStartSpin();
       }, 50);
@@ -149,7 +144,7 @@ export default function Randomize() {
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // build strip: a few randoms → chosen → a few extras for visual balance
+    // build strip: a few randoms → chosen → a few extras
     const previewCount = Math.max(6, Math.min(14, Math.floor(rand(8, 12))));
     const preview = Array.from({ length: previewCount }, () => {
       const i = Math.floor(Math.random() * N);
@@ -168,9 +163,8 @@ export default function Randomize() {
     // measure and compute distance to center chosen
     const winRect = winEl.getBoundingClientRect();
     const items = Array.from(rail.querySelectorAll(".tk-item"));
-    const target = items[preview.length];
+    const target = items[preview.length]; // the chosen one in the strip
     if (!target) {
-      // rare race; try again
       setTimeout(() => {
         if (phase === "spinning") safeStartSpin();
       }, 50);
@@ -185,7 +179,6 @@ export default function Randomize() {
     const baseDistance = tMid - winMid;
     const totalDistance = baseDistance + overshoot;
 
-    // animate to overshoot, then ease back
     const duration = rand(2700, 3600);
     const settleMs = 450;
     const startX = 0;
@@ -212,6 +205,9 @@ export default function Randomize() {
           rail.style.transform = `translate3d(${nx}px,0,0)`;
           if (pp < 1) requestAnimationFrame(back);
           else {
+            // mark winner item for strong glow
+            if (target) target.classList.add("is-winner");
+
             const L = poll.options.slice();
             L.splice(winIdx, 1);
             setWinner(chosen);
@@ -384,9 +380,12 @@ export default function Randomize() {
                 <canvas ref={confettiRef} className="confetti-canvas" />
               </div>
 
-              <div className="ticker-window" ref={windowRef}>
+              {/* highlight frame removed; we only toggle a 'spinning' class */}
+              <div
+                className={`ticker-window ${phase === "spinning" ? "spinning" : ""}`}
+                ref={windowRef}
+              >
                 <div className="ticker-rail" ref={railRef} />
-                <div className="ticker-highlight" />
               </div>
 
               {phase === "revealed" && winner && (
@@ -541,12 +540,38 @@ function ThemeStyles() {
 .count-num{font-size:min(24vw,170px);font-weight:900;text-shadow:0 6px 26px rgba(0,0,0,.55), 0 0 30px rgba(255,140,0,.45);color:#ffe0b3;animation:pop .75s ease forwards}
 @keyframes pop{0%{transform:scale(.6);opacity:.2}80%{transform:scale(1.05);opacity:1}100%{transform:scale(1)}}
 
-/* ticker */
+/* ticker (frame removed; item-based glow instead) */
 .ticker-area{position:relative;margin-top:10px}
-.ticker-window{position:relative;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));overflow:hidden;height:84px}
+.ticker-window{
+  position:relative; border-radius:14px;
+  border:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));
+  overflow:hidden; height:84px;
+}
 .ticker-rail{display:flex;gap:12px;align-items:center;padding:0 18px;will-change:transform}
-.tk-item{flex:0 0 auto;padding:12px 16px;border-radius:12px;font-weight:800;background:#131a2a;color:var(--ink);border:1px solid #2b3246;min-width:120px;text-align:center}
-.ticker-highlight{position:absolute;top:8px;bottom:8px;left:50%;width:48%;transform:translateX(-50%);border:2px solid rgba(255,140,0,.7);border-radius:12px;pointer-events:none;box-shadow:0 0 24px rgba(255,140,0,.25) inset}
+.tk-item{
+  flex:0 0 auto;padding:12px 16px;border-radius:12px;font-weight:800;
+  background:#131a2a;color:var(--ink);border:1px solid #2b3246;
+  min-width:120px;text-align:center;
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+}
+/* During spin: all items softly pulse */
+.ticker-window.spinning .tk-item{
+  animation: itemGlow 900ms ease-in-out infinite alternate;
+}
+@keyframes itemGlow{
+  from { box-shadow: 0 0 0 rgba(255,140,0,0); border-color:#2b3246; }
+  to   { box-shadow: 0 0 14px rgba(255,140,0,.35); border-color: rgba(255,140,0,.45); }
+}
+/* Winner: stronger glow + slight scale pop */
+.tk-item.is-winner{
+  animation: none;
+  box-shadow:
+    0 0 28px rgba(255,140,0,.60),
+    0 0 10px rgba(255,140,0,.45) inset;
+  border-color: rgba(255,140,0,.90);
+  transform: scale(1.04);
+}
 
 /* results */
 .result-wrap{margin-top:14px;display:flex;flex-direction:column;gap:12px}
@@ -567,8 +592,6 @@ function ThemeStyles() {
 /* confetti canvas */
 .confetti-layer{position:absolute;inset:0;pointer-events:none}
 .confetti-canvas{position:absolute;inset:auto 0 0 0;height:160px;width:100%}
-
-@media (max-width:680px){ .ticker-highlight{ width:64% } }
 `;
   return <style>{CSS}</style>;
 }
