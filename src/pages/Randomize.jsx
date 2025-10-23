@@ -174,9 +174,12 @@ export default function Randomize() {
     };
 
     const targetMidY = itemMidY(middleTarget);
-    const baseDistance = targetMidY - winMidY; // how far to move UP (translateY negative)
+    const baseDistance = targetMidY - winMidY; // amount we must move UP (negative translateY)
     const overshoot = Math.min(120, winRect.height * 0.16);
-    const totalDistance = baseDistance + overshoot;
+
+    // target transforms
+    const yOvershootStart = -(baseDistance + overshoot); // move past center
+    const yCenter = -baseDistance;                         // final centered position
 
     // Live focus glow near the center line
     const updateGlow = () => {
@@ -190,37 +193,37 @@ export default function Randomize() {
       }
     };
 
-    // animate: translateY negative to move items up
     const duration = 2700 + Math.random() * 900;
     const settleMs = 480;
     const t0 = performance.now();
-    let didBack = false;
-
     cancelAnimationFrame(animRef.current);
+
+    // phase 1: accelerate to overshoot
     const step = (ts) => {
       const p = Math.min(1, (ts - t0) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      const y = -totalDistance * eased;
+      const y = yOvershootStart * eased; // from 0 → yOvershootStart
       rail.style.transform = `translate3d(0, ${y}px, 0)`;
       updateGlow();
 
       if (p < 1) {
         animRef.current = requestAnimationFrame(step);
-      } else if (!didBack) {
-        didBack = true;
+      } else {
+        // phase 2: easeOutBack from yOvershootStart → yCenter (STOP HERE)
         const startBack = performance.now();
-        const finalTarget = y + overshoot; // bounce back toward center
         const back = (tt) => {
           const pp = Math.min(1, (tt - startBack) / settleMs);
           const c1 = 1.10158, c3 = c1 + 1;
+          // easeOutBack curve 0→1
           const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
-          const ny = finalTarget + (0 - finalTarget) * eob;
+          const ny = yOvershootStart + (yCenter - yOvershootStart) * eob;
           rail.style.transform = `translate3d(0, ${ny}px, 0)`;
           updateGlow();
 
           if (pp < 1) requestAnimationFrame(back);
           else {
-            // mark centered item as winner, it sits under the orange highlight
+            // lock at the perfect center
+            rail.style.transform = `translate3d(0, ${yCenter}px, 0)`;
             els[middleTarget]?.classList.add("winner");
             const L = poll.options.slice();
             L.splice(winIdx, 1);
