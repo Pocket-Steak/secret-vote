@@ -3,11 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="%BASE_URL%TheSecretVote.png" />
+    <!-- favicon can use %BASE_URL% because it's a static asset -->
+    <link rel="icon" type="image/png" href="%BASE_URL%TheSecretVote.png" />
     <title>The Secret Vote</title>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="%BASE_URL%src/main.jsx"></script>
+    <!-- IMPORTANT: keep this EXACT path (no %BASE_URL%) -->
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
