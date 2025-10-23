@@ -146,11 +146,10 @@ export default function Randomize() {
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // Build repeated strip: [top block][MIDDLE block][bottom block]
-    // We'll stop on the MIDDLE block so the winner sits behind the highlight.
+    // Build repeated strip: [top][MIDDLE][bottom]; we land in the middle block.
     const repeats = 3;
     const stripLabels = Array.from({ length: repeats * N }, (_, i) => poll.options[i % N]);
-    const middleStart = N; // block #2 start
+    const middleStart = N;
     const middleTarget = middleStart + winIdx;
 
     // Mount items vertically
@@ -164,31 +163,28 @@ export default function Randomize() {
       els.push(el);
     }
 
-    // Measure
+    // Measure (transform-safe): use offsets so transforms don't skew the math
     const winRect = winEl.getBoundingClientRect();
     const winMidY = winRect.top + winRect.height / 2;
-
-    const itemMidY = (idx) => {
-      const r = els[idx].getBoundingClientRect();
-      return r.top + r.height / 2;
-    };
+    const railRect = rail.getBoundingClientRect();
+    const itemMidY = (idx) => railRect.top + els[idx].offsetTop + els[idx].offsetHeight / 2;
 
     const targetMidY = itemMidY(middleTarget);
-    const baseDistance = targetMidY - winMidY; // amount we must move UP (negative translateY)
+    const baseDistance = targetMidY - winMidY; // how far UP we must move the rail
     const overshoot = Math.min(120, winRect.height * 0.16);
 
     // target transforms
-    const yOvershootStart = -(baseDistance + overshoot); // move past center
-    const yCenter = -baseDistance;                         // final centered position
+    const yOvershootStart = -(baseDistance + overshoot); // go past center
+    const yCenter = -baseDistance;                        // final lock at center
 
-    // Live focus glow near the center line
+    // Live focus glow (can use rects; visual-only)
     const updateGlow = () => {
-      const span = winRect.height * 0.6; // reach of glow
+      const span = winRect.height * 0.6;
       for (const el of els) {
         const r = el.getBoundingClientRect();
         const mid = r.top + r.height / 2;
         const d = Math.abs(mid - winMidY);
-        const focus = Math.max(0, 1 - d / span); // 1 at center → 0 away
+        const focus = Math.max(0, 1 - d / span);
         el.style.setProperty("--focus", focus.toFixed(3));
       }
     };
@@ -198,23 +194,22 @@ export default function Randomize() {
     const t0 = performance.now();
     cancelAnimationFrame(animRef.current);
 
-    // phase 1: accelerate to overshoot
+    // phase 1: ease to overshoot
     const step = (ts) => {
       const p = Math.min(1, (ts - t0) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      const y = yOvershootStart * eased; // from 0 → yOvershootStart
+      const y = yOvershootStart * eased;
       rail.style.transform = `translate3d(0, ${y}px, 0)`;
       updateGlow();
 
       if (p < 1) {
         animRef.current = requestAnimationFrame(step);
       } else {
-        // phase 2: easeOutBack from yOvershootStart → yCenter (STOP HERE)
+        // phase 2: easeOutBack from overshoot → center (STOP here)
         const startBack = performance.now();
         const back = (tt) => {
           const pp = Math.min(1, (tt - startBack) / settleMs);
           const c1 = 1.10158, c3 = c1 + 1;
-          // easeOutBack curve 0→1
           const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
           const ny = yOvershootStart + (yCenter - yOvershootStart) * eob;
           rail.style.transform = `translate3d(0, ${ny}px, 0)`;
@@ -222,8 +217,7 @@ export default function Randomize() {
 
           if (pp < 1) requestAnimationFrame(back);
           else {
-            // lock at the perfect center
-            rail.style.transform = `translate3d(0, ${yCenter}px, 0)`;
+            rail.style.transform = `translate3d(0, ${yCenter}px, 0)`; // final lock
             els[middleTarget]?.classList.add("winner");
             const L = poll.options.slice();
             L.splice(winIdx, 1);
@@ -551,7 +545,7 @@ function ThemeStyles() {
 /* ========= VERTICAL REEL ========= */
 .reel-area{position:relative;margin-top:10px}
 .reel-window{
-  position:relative; height:220px; /* visible slot window */
+  position:relative; height:220px;
   border-radius:14px; border:1px solid rgba(255,255,255,.08);
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));
   overflow:hidden;
@@ -560,9 +554,8 @@ function ThemeStyles() {
 }
 .reel-rail{display:flex; flex-direction:column; gap:10px; padding:12px 14px; will-change:transform}
 
-/* each item height ~64px so the center frame lines up */
 .reel-item{
-  --focus: 0; /* 0..1 set by JS */
+  --focus: 0;
   min-height:64px; display:flex; align-items:center; justify-content:center;
   border-radius:12px; padding:8px 12px; font-weight:900;
   background:#131a2a; color:var(--ink); border:1px solid #2b3246;
@@ -590,7 +583,7 @@ function ThemeStyles() {
   position:absolute;
   left:10px; right:10px;
   top:50%;
-  height:68px;               /* slightly taller than item min-height */
+  height:68px;
   transform: translateY(-50%);
   border:2px solid rgba(255,140,0,.85);
   border-radius:12px;
