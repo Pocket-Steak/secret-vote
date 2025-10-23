@@ -18,7 +18,7 @@ function dedupeOptions(rawOptions) {
 const rand = (a, b) => Math.random() * (b - a) + a;
 
 /* =========================================================
-   Randomize (VERTICAL REEL)
+   Randomize (VERTICAL REEL with CENTER HIGHLIGHT)
 ========================================================= */
 export default function Randomize() {
   const { code: raw } = useParams();
@@ -131,7 +131,7 @@ export default function Randomize() {
     return arr;
   }
 
-  /* ---------- vertical reel spin ---------- */
+  /* ---------- vertical reel spin (lands winner in the CENTER) ---------- */
   function startSpin() {
     const winEl = windowRef.current;
     const rail = railRef.current;
@@ -146,13 +146,14 @@ export default function Randomize() {
     const winIdx = Math.floor(Math.random() * N);
     const chosen = poll.options[winIdx];
 
-    // Build repeated strip (top, middle, bottom blocks) so we can land in the middle one.
+    // Build repeated strip: [top block][MIDDLE block][bottom block]
+    // We'll stop on the MIDDLE block so the winner sits behind the highlight.
     const repeats = 3;
     const stripLabels = Array.from({ length: repeats * N }, (_, i) => poll.options[i % N]);
-    const middleStart = N;
+    const middleStart = N; // block #2 start
     const middleTarget = middleStart + winIdx;
 
-    // Mount items (vertical)
+    // Mount items vertically
     rail.innerHTML = "";
     const els = [];
     for (let i = 0; i < stripLabels.length; i++) {
@@ -163,7 +164,7 @@ export default function Randomize() {
       els.push(el);
     }
 
-    // Measure things
+    // Measure
     const winRect = winEl.getBoundingClientRect();
     const winMidY = winRect.top + winRect.height / 2;
 
@@ -173,11 +174,11 @@ export default function Randomize() {
     };
 
     const targetMidY = itemMidY(middleTarget);
-    const baseDistance = targetMidY - winMidY;  // how far to move UP so target lands in center
+    const baseDistance = targetMidY - winMidY; // how far to move UP (translateY negative)
     const overshoot = Math.min(120, winRect.height * 0.16);
     const totalDistance = baseDistance + overshoot;
 
-    // Live focus glow based on distance from center (vertical)
+    // Live focus glow near the center line
     const updateGlow = () => {
       const span = winRect.height * 0.6; // reach of glow
       for (const el of els) {
@@ -191,7 +192,7 @@ export default function Randomize() {
 
     // animate: translateY negative to move items up
     const duration = 2700 + Math.random() * 900;
-    const settleMs = 450;
+    const settleMs = 480;
     const t0 = performance.now();
     let didBack = false;
 
@@ -208,10 +209,9 @@ export default function Randomize() {
       } else if (!didBack) {
         didBack = true;
         const startBack = performance.now();
-        const finalTarget = y + overshoot;
+        const finalTarget = y + overshoot; // bounce back toward center
         const back = (tt) => {
           const pp = Math.min(1, (tt - startBack) / settleMs);
-          // easeOutBack-like
           const c1 = 1.10158, c3 = c1 + 1;
           const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
           const ny = finalTarget + (0 - finalTarget) * eob;
@@ -220,6 +220,7 @@ export default function Randomize() {
 
           if (pp < 1) requestAnimationFrame(back);
           else {
+            // mark centered item as winner, it sits under the orange highlight
             els[middleTarget]?.classList.add("winner");
             const L = poll.options.slice();
             L.splice(winIdx, 1);
@@ -388,7 +389,8 @@ export default function Randomize() {
 
               <div className="reel-window" ref={windowRef}>
                 <div className="reel-rail" ref={railRef} />
-                {/* no visible frame; center indicated by edge vignette */}
+                {/* NEW: visible center highlight frame */}
+                <div className="reel-highlight" aria-hidden="true" />
               </div>
 
               {phase === "revealed" && winner && (
@@ -550,15 +552,15 @@ function ThemeStyles() {
   border-radius:14px; border:1px solid rgba(255,255,255,.08);
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.12));
   overflow:hidden;
-  /* vignette top/bottom; guides eyes to middle without a frame */
   mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%);
 }
 .reel-rail{display:flex; flex-direction:column; gap:10px; padding:12px 14px; will-change:transform}
 
+/* each item height ~64px so the center frame lines up */
 .reel-item{
   --focus: 0; /* 0..1 set by JS */
-  min-height:56px; display:flex; align-items:center; justify-content:center;
+  min-height:64px; display:flex; align-items:center; justify-content:center;
   border-radius:12px; padding:8px 12px; font-weight:900;
   background:#131a2a; color:var(--ink); border:1px solid #2b3246;
   transform: scale(calc(1 + 0.06*var(--focus)));
@@ -571,13 +573,28 @@ function ThemeStyles() {
 .reel-item.winner{
   animation: winnerPulse 1400ms ease-out 1;
   box-shadow:
-    0 0 30px rgba(255,140,0,.45),
-    0 0 10px rgba(255,140,0,.45) inset;
+    0 0 30px rgba(255,140,0,.55),
+    0 0 12px rgba(255,140,0,.55) inset;
 }
 @keyframes winnerPulse{
   0%{ transform:scale(1) }
   40%{ transform:scale(1.08) }
   100%{ transform:scale(1.02) }
+}
+
+/* CENTER ORANGE HIGHLIGHT BOX */
+.reel-highlight{
+  position:absolute;
+  left:10px; right:10px;
+  top:50%;
+  height:68px;               /* slightly taller than item min-height */
+  transform: translateY(-50%);
+  border:2px solid rgba(255,140,0,.85);
+  border-radius:12px;
+  box-shadow:
+    0 0 24px rgba(255,140,0,.25) inset,
+    0 0 28px rgba(255,140,0,.18);
+  pointer-events:none;
 }
 
 /* results */
