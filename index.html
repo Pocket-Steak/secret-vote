@@ -3,13 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- favicon can use %BASE_URL% because it's a static asset -->
-    <link rel="icon" type="image/png" href="%BASE_URL%TheSecretVote.png" />
+    <!-- Put TheSecretVote.png in /public so Vite serves it at /TheSecretVote.png in dev
+         and rewrites it under the base path in production -->
+    <link rel="icon" type="image/png" href="/TheSecretVote.png" />
     <title>The Secret Vote</title>
   </head>
   <body>
     <div id="root"></div>
-    <!-- IMPORTANT: keep this EXACT path (no %BASE_URL%) -->
+    <!-- Vite will transform this to the hashed bundle during build -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
