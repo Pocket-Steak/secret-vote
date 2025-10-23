@@ -38,7 +38,7 @@ export default function Randomize() {
 
   // reel refs
   const windowRef = useRef(null);
-  const railRef = useRef(null);
+  the railRef = useRef(null);
   const animRef = useRef(0);
 
   // confetti
@@ -208,13 +208,16 @@ export default function Randomize() {
         animRef.current = requestAnimationFrame(step);
       } else if (!didBack) {
         didBack = true;
+
+        // NEW: bounce from overshoot back to the exact centered target
         const startBack = performance.now();
-        const finalTarget = y + overshoot; // bounce back toward center
+        const startY = y;                 // -totalDistance (past center)
+        const endY   = y + overshoot;     // -baseDistance  (exact center)
         const back = (tt) => {
           const pp = Math.min(1, (tt - startBack) / settleMs);
           const c1 = 1.10158, c3 = c1 + 1;
           const eob = 1 + c3 * Math.pow(pp - 1, 3) + c1 * Math.pow(pp - 1, 2);
-          const ny = finalTarget + (0 - finalTarget) * eob;
+          const ny = startY + (endY - startY) * eob;   // land at center
           rail.style.transform = `translate3d(0, ${ny}px, 0)`;
           updateGlow();
 
@@ -389,7 +392,7 @@ export default function Randomize() {
 
               <div className="reel-window" ref={windowRef}>
                 <div className="reel-rail" ref={railRef} />
-                {/* NEW: visible center highlight frame */}
+                {/* visible center highlight frame */}
                 <div className="reel-highlight" aria-hidden="true" />
               </div>
 
@@ -569,6 +572,7 @@ function ThemeStyles() {
     0 1px 0 rgba(255,255,255,.05) inset;
   transition: transform .08s linear, box-shadow .08s linear;
   text-align:center;
+  white-space:nowrap; text-overflow:ellipsis; overflow:hidden;
 }
 .reel-item.winner{
   animation: winnerPulse 1400ms ease-out 1;
