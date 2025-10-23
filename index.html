@@ -3,12 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Optional: use your logo as the tab icon -->
-    <link rel="icon" type="image/png" href="/TheSecretVote.png" />
+    <!-- Put TheSecretVote.png in /public/ -->
+    <link rel="icon" href="%BASE_URL%TheSecretVote.png" />
     <title>The Secret Vote</title>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <!-- Load entry via BASE_URL so dev & GH Pages both work -->
+    <script type="module" src="%BASE_URL%src/main.jsx"></script>
   </body>
 </html>
