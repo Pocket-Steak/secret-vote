@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Put TheSecretVote.png in /public -->
-    <link rel="icon" type="image/png" href="%BASE_URL%TheSecretVote.png" />
+    <!-- Keep the favicon in /public so it's served from the root -->
+    <link rel="icon" type="image/png" href="/TheSecretVote.png" />
     <title>The Secret Vote</title>
   </head>
   <body>
     <div id="root"></div>
-    <!-- Vite will rewrite this to the hashed bundle at the correct base -->
+    <!-- IMPORTANT: dev entry; Vite rewrites this during build -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
