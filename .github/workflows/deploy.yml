@@ -3,15 +3,11 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ "main" ]
-    # 🔽 Only run this workflow when these paths change
     paths:
-      # the page you care about
-      - 'src/pages/Randomize.jsx'
-      # shared stuff Randomize might import (adjust as needed)
+      - 'src/pages/**'
       - 'src/lib/**'
       - 'src/components/**'
       - 'src/assets/**'
-      # build/config files that affect the output
       - 'index.html'
       - 'vite.config.*'
       - 'package.json'
@@ -43,7 +39,6 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      # Write .env for Vite (leave as you had it)
       - name: Write Vite .env
         run: |
           echo "VITE_SUPABASE_URL=${VITE_SUPABASE_URL}" > .env
